@@ -10,7 +10,7 @@ It should not become a generic SEO crawler, rank tracker, Lighthouse wrapper, or
 
 ## Repository review: engineering lessons
 
-> Note: direct cloning and raw GitHub access were blocked in the execution environment by a `CONNECT tunnel failed, response 403` network restriction. This review therefore treats the requested repositories as architectural references and extracts reusable design patterns rather than copying implementation details.
+This document remains the high-level architecture recommendation. For concrete implementation patterns inspected from the checked-in reference repositories under `research/`, see [Source-code review patterns for `visibility-detector`](source-code-review-patterns.md).
 
 ### `PhialsBasement/LibreCrawl`
 
