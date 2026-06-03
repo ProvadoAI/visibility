@@ -1,0 +1,14 @@
+docker-compose.*
+Dockerfile*
+*.md
+*.log
+.git
+.git/
+.git/*
+.git/**
+node_modules
+data/
+/config.js
+/undefined*
+/cloud-functions
+/assets/site-audit-demo.gif

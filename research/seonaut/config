@@ -1,0 +1,18 @@
+[server]
+host = "0.0.0.0"
+port = 9000
+url = "http://localhost:9000"
+
+[database]
+server = "db"
+port = 3306
+user = "seonaut"
+password = "seonaut"
+database = "seonaut"
+
+[crawler]
+agent = "Mozilla/5.0 (compatible; SEOnautBot/1.0; +https://seonaut.org/bot)"
+
+[UI]
+language = "en"
+theme = "dark"

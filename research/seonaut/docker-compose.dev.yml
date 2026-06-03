@@ -1,0 +1,8 @@
+services:
+  db:
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    extends:
+      file: docker-compose.yml
+      service: db
+

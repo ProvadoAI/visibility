@@ -1,0 +1,56 @@
+<html lang="en">
+	<head>
+		<title>Test Page Title</title>
+		<meta name="description" content="Test Page Description" />
+		<meta http-equiv="refresh" content="0;URL='/'" />
+		<meta name="robots" content="noindex, nofollow" />
+		<link rel="canonical" href="/canonical/" />
+		<link rel="alternate" href="https://example.com/fr" hreflang="fr" />
+		<link rel="alternate" href="https://example.com/" hreflang="x-default" />
+		<script src="/js/app.js"></script>
+		<link rel="stylesheet" href="/css/style.css">
+	</head>
+	<body>
+		<a rel="nofollow" href="/link1">link1</a>
+		<a href="link2">link2</a>
+		<a href="https://example.com/link3">link3</a>
+		<a href="https://external.com/test" rel="sponsored,ugc">link3</a>
+		<a href="javascript:void(0);">Javascript link</a>
+		<a href="mailto:foo@example.com">Email link</a>
+
+		<a href="/home"><img src="/img/logo.png" alt="logo" /></a>
+
+		<a href="https://example.com">Absolute link</a>
+		<a href="#anchor">Anchor</a>
+
+		<img alt="no src"><!-- images with no src are ignored -->
+		<img src="/img/home.png" srcset="/img/home2.png 1x, /img/home3.png 2x" alt="home">
+		<img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBwwPDQ8ODQ..." alt="data image">
+
+		<picture>
+			<source srcset="/img/pic-wide.png" media="(min-width: 800px)">
+			<source srcset="/img/pic-medium.png" media="(min-width: 600px)">
+			<img src="/img/pic-narrow.png" alt="picture alt">
+		</picture>
+
+		<audio src="/audio_file.ogg" controls>
+			<source src="/audio_file.wav" type="audio/wav">
+			<source src="/audio_file.mp3" type="audio/mpeg">
+		</audio>
+
+		<video controls width="250" poster="/poster.png">
+			<source src="/video_file.webm" type="video/webm">
+			<source src="/video_file.mp4" type="video/mp4">
+		</video>
+
+		<video controls src="video_file.webm"></video>
+
+		<iframe height="500" width="500" src="http://example.com"></iframe>
+
+		<h1>H1 Title</h1>
+		<p>word1 word2</p>
+		<h2>H2 Title</h2>
+		<p>word1</p>
+		<h5>Wrong heading order</h5>
+	</body>
+</html>
