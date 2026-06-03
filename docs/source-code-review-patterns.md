@@ -252,6 +252,80 @@ Useful patterns are evaluated by whether they help `visibility-detector` build a
 - **Recommendation:** **Use as inspiration.** Recreate cases in product-specific fixtures.
 - **Risk/complexity/licensing notes:** Low risk if we write original fixtures and assertions.
 
+## `semantic-fashion-search` review status and future-product-query patterns
+
+The repository entry `research/semantic-fashion-search` is included as a reference project, but in this checkout it is a Git submodule pointer rather than materialized source code. `find research/semantic-fashion-search -type f` returns no files, and `git submodule update --init --recursive research/semantic-fashion-search` fails because `.gitmodules` does not provide a URL for that path. Therefore this review intentionally does **not** claim specific inspected classes or functions from that repository yet.
+
+This still affects the planning documentation because the project's intended reference value is distinct from the crawler/indexability repositories already reviewed: it belongs to a future **Expected Visibility / Product-Query Matching** layer, not to the v0.1 noindex/canonical/robots core. Once the submodule source is materialized, review should focus on the concrete files/classes/functions/modules that implement product embeddings, query embeddings, semantic similarity, vector search, product metadata normalization, user-query-to-product mapping, expected-query generation or validation, and demo/test dataset structure.
+
+### Semantic reference scope to reserve for later review
+
+- **Source repo:** `research/semantic-fashion-search`
+- **File path:** `research/semantic-fashion-search` submodule pointer at commit `d163cff1ce16faef12b092301bcd4f34147f13b9`; no source files are present in this checkout.
+- **Class/function/module:** Not available in the current checkout. Do not invent names until the submodule is populated.
+- **What the code does:** Intended reference area is semantic product-query matching: embedding products and queries, scoring semantic similarity, and ranking candidate products for natural-language product intent.
+- **How it maps to `visibility-detector`:** This maps to a later layer that can validate whether a caller's expected queries semantically describe the product and can suggest related expected queries. It does **not** replace v0.1's external SERP evidence collection, URL matching, noindex checks, canonical diagnostics, or structured-data checks.
+- **Recommendation:** **Use as inspiration after source is available.** Reserve interfaces now; do not copy or implement semantic search code yet.
+- **Risk/complexity/licensing notes:** High complexity compared with v0.1 because embeddings introduce model choice, vector storage, latency, explainability, evaluation datasets, and licensing concerns. Also, the current checkout cannot verify license headers or dependency licenses inside the submodule.
+
+### Pattern 24. Product and query embedding provider seam
+
+- **Source repo:** `research/semantic-fashion-search`
+- **File path:** To be confirmed after the submodule is materialized; likely files related to embedding generation or model clients.
+- **Class/function/module:** To be confirmed; look for product-embedding and query-embedding generators.
+- **What the code does:** A semantic search system normally transforms normalized product text and natural-language queries into vectors in the same embedding space so that product-query relevance can be computed beyond exact keyword overlap.
+- **How it maps to `visibility-detector`:** Reserve an optional `ProductQueryMatcher` or `SemanticQueryMatcher` contract that accepts a `ProductSubject` and `SearchQuery` and returns a deterministic `QueryProductMatch` with score, matched fields, and explanation metadata. This lets future versions validate expected queries without making embeddings part of v0.1.
+- **Recommendation:** **Adapt only at the interface level for now.** Keep v0.1 deterministic and dependency-free; add embedding adapters later as optional packages.
+- **Risk/complexity/licensing notes:** Embedding providers can be proprietary, network-bound, non-deterministic across model versions, and expensive. Store model name/version and normalization inputs in evidence if this is added later.
+
+### Pattern 25. Vector-search candidate ranking as an optional expected-query validator
+
+- **Source repo:** `research/semantic-fashion-search`
+- **File path:** To be confirmed after the submodule is materialized; likely files related to vector indexes or nearest-neighbor search.
+- **Class/function/module:** To be confirmed; look for vector-search, similarity-search, or nearest-neighbor modules.
+- **What the code does:** Vector search retrieves products whose embeddings are nearest to the query embedding, usually with cosine similarity, dot product, or distance metrics.
+- **How it maps to `visibility-detector`:** Later versions can use this as an internal sanity check: if a product does not semantically rank for one of its expected queries inside the merchant catalog, an external-SERP absence may reflect a weak expected query rather than a crawl/indexability issue.
+- **Recommendation:** **Use as inspiration.** Do not make vector storage a core dependency; expose a matcher contract and allow callers to plug in their own vector index.
+- **Risk/complexity/licensing notes:** Vector search can broaden the package into catalog search infrastructure. Keep it bounded to expected-query validation and evidence generation, not a product-search application.
+
+### Pattern 26. Product metadata normalization before semantic matching
+
+- **Source repo:** `research/semantic-fashion-search`
+- **File path:** To be confirmed after the submodule is materialized; likely dataset loaders, product serializers, or metadata preprocessing modules.
+- **Class/function/module:** To be confirmed; look for functions that combine product title, brand, category, description, attributes, variants, colors, sizes, or tags into searchable text.
+- **What the code does:** Semantic product search depends on converting heterogeneous product metadata into consistent text/features before embedding and retrieval.
+- **How it maps to `visibility-detector`:** The existing `ProductSubject` should keep generic fields (`name`, `brand`, `sku`, `gtin`, `description`, `attributes`, `acceptableUrls`) so future query matching can normalize catalog data without hard-coding fashion attributes.
+- **Recommendation:** **Adapt conceptually.** Preserve generic metadata normalization hooks, but do not introduce fashion-specific taxonomies.
+- **Risk/complexity/licensing notes:** Attribute normalization can become domain-specific quickly. Avoid color/size/category assumptions in the core package.
+
+### Pattern 27. Expected-query generation and validation fixtures
+
+- **Source repo:** `research/semantic-fashion-search`
+- **File path:** To be confirmed after the submodule is materialized; likely demo data, fixtures, notebooks, seed data, or tests.
+- **Class/function/module:** To be confirmed; look for expected query lists, demo query/product pairs, validation scripts, and evaluation metrics.
+- **What the code does:** Semantic search projects often include small product catalogs and representative natural-language queries to demonstrate or evaluate that query intent maps to the right products.
+- **How it maps to `visibility-detector`:** Future fixtures should include product/query pairs such as `expected_match`, `weak_match`, and `mismatch`. These fixtures can test whether expected queries are plausible before external search APIs are involved.
+- **Recommendation:** **Adapt the fixture idea only.** Create original, generic ecommerce fixtures; do not copy fashion data or broaden the product into fashion search.
+- **Risk/complexity/licensing notes:** Demo datasets may have unclear licensing, personal data, or brand/product-trademark constraints. Use synthetic fixtures unless licenses are explicit.
+
+## Recommendation for semantic product-query matching
+
+Semantic product-query matching should be **v0.2 or later**, not v0.1. v0.1 should reserve a minimal interface but remain focused on indexability, canonical/noindex diagnostics, product-page evidence, search-result collection, and URL matching.
+
+Minimal interface to reserve now:
+
+```php
+interface ProductQueryMatcher
+{
+    /**
+     * @return QueryProductMatch[] Evidence explaining whether each query plausibly maps to the product.
+     */
+    public function match(ProductSubject $product, array $queries): array;
+}
+```
+
+The returned `QueryProductMatch` should be a small value object with `query`, `score`, `status` (`strong_match`, `weak_match`, `mismatch`, `not_evaluated`), `matchedFields`, `modelOrMethod`, and `evidence`. A v0.1 implementation can ship only a `NullProductQueryMatcher` or omit the dependency entirely while keeping constructor/configuration space for it.
+
 ## Code patterns to avoid
 
 ### Avoid broad crawler scope

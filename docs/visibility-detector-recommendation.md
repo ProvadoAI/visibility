@@ -116,6 +116,26 @@ This document remains the high-level architecture recommendation. For concrete i
 - Performance, accessibility, PWA, and browser trace audits that do not directly answer product search visibility.
 - A Lighthouse subprocess dependency as the default path.
 
+### `research/semantic-fashion-search`
+
+#### What it should be used for
+
+- Inspiration for a future Expected Visibility / Product-Query Matching layer.
+- Understanding how product metadata and user-facing product queries can be embedded, compared semantically, and evaluated as plausible matches.
+- Designing generic query/product validation fixtures that can identify weak expected queries before external search-result checks run.
+
+#### Conceptually reusable parts
+
+- A future `ProductQueryMatcher` seam that scores whether expected queries plausibly map to the product.
+- Generic product metadata normalization before semantic comparison.
+- Query/product match evidence that records matched fields, model or method, score, and status.
+
+#### Parts not to copy
+
+- Fashion-specific taxonomies, dashboards, Laravel/application code, or vector-search infrastructure as core package dependencies.
+- Semantic search as a replacement for v0.1 external SERP evidence, canonical matching, noindex, robots, or structured-data diagnostics.
+- Source code or fixtures until the submodule source is materialized and licensing is verified. In this checkout `research/semantic-fashion-search` is a submodule pointer without local source files.
+
 ## Best model to learn from
 
 The best architectural model is Lighthouse, but only at the pattern level. Its gatherer/audit/report separation maps well to visibility detection: first gather search-result and product-page evidence, then run targeted detectors, then return an explainable report. The package should not depend on Lighthouse in v0.1 because browser automation and Node subprocesses would make the PHP core heavier, slower, and harder to install.
@@ -132,6 +152,7 @@ For v0.1 implementation simplicity, the lightweight HTML-analysis style of `pyth
 4. Targeted checks: analyze a known product URL and expected queries, not an arbitrary website.
 5. Explainable output: return probable causes with severity and confidence, not a black-box SEO score.
 6. Deterministic tests: core rules should be testable with static HTML and fake search-provider responses.
+7. Future semantic matching is optional: reserve a small product-query matching seam, but keep embeddings and vector stores out of the v0.1 core.
 
 ### High-level flow
 
@@ -147,6 +168,8 @@ For v0.1 implementation simplicity, the lightweight HTML-analysis style of `pyth
    - matched result URL/title/snippet when found,
    - probable causes when absent or weak,
    - confidence and remediation hints.
+
+Semantic product-query matching should be deferred to v0.2 or later. v0.1 may reserve an optional `ProductQueryMatcher` contract or a nullable matcher slot so future versions can validate whether expected queries plausibly describe the product, but the initial implementation should not require embeddings, vector storage, or model providers.
 
 ## Suggested folder structure
 
