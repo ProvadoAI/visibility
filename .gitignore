@@ -1,0 +1,5 @@
+/vendor/
+.phpunit.result.cache
+composer.phar
+.env
+.DS_Store
