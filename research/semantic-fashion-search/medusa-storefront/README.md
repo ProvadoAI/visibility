@@ -1,0 +1,1 @@
+# Frontend storefront of a fashion ecommerce, using a custom search engine plugin. Deployed with Netlify.
