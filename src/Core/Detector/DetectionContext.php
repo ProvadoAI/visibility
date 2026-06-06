@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace VisibilityDetector\Core\Detector;
 
+use VisibilityDetector\Core\Page\PageSnapshot;
+use VisibilityDetector\Core\Page\ParsedPage;
 use VisibilityDetector\Core\Product\ProductSubject;
 use VisibilityDetector\Core\Search\SearchQuery;
 use VisibilityDetector\Core\Search\SearchResultSet;
@@ -16,6 +18,8 @@ final readonly class DetectionContext
         public SearchQuery $query,
         public SearchResultSet $resultSet,
         public UrlMatch $urlMatch,
+        public ?PageSnapshot $pageSnapshot = null,
+        public ?ParsedPage $parsedPage = null,
     ) {
     }
 
@@ -26,6 +30,8 @@ final readonly class DetectionContext
             'query' => $this->query->toArray(),
             'resultSet' => $this->resultSet->toArray(),
             'urlMatch' => $this->urlMatch->toArray(),
+            'pageSnapshot' => $this->pageSnapshot?->toArray(),
+            'parsedPage' => $this->parsedPage?->toArray(),
         ];
     }
 }
