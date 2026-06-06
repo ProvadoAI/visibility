@@ -24,6 +24,15 @@ final class IndexabilityDetectorTest extends TestCase
         self::assertSame('timeout', $findings[0]->evidence['pageSnapshot']['failureType']);
     }
 
+    public function test_null_failure_type_does_not_produce_fetch_failed_finding(): void
+    {
+        $findings = (new IndexabilityDetector())->detect($this->context(
+            pageSnapshot: $this->snapshot(failureType: null),
+        ));
+
+        self::assertNotContains('page.fetch_failed', $this->codes($findings));
+    }
+
     public function test_non_2xx_http_status_produces_finding(): void
     {
         $findings = (new IndexabilityDetector())->detect($this->context(
@@ -60,6 +69,15 @@ final class IndexabilityDetectorTest extends TestCase
         self::assertSame('page.noindex_meta', $findings[0]->code);
     }
 
+    public function test_googlebot_meta_noindex_produces_finding(): void
+    {
+        $findings = (new IndexabilityDetector())->detect($this->context(
+            parsedPage: $this->parsedPage(robotsDirectives: [' Googlebot: NoIndex ']),
+        ));
+
+        self::assertContains('page.noindex_meta', $this->codes($findings));
+    }
+
     public function test_x_robots_noindex_produces_finding(): void
     {
         $findings = (new IndexabilityDetector())->detect($this->context(
@@ -67,6 +85,28 @@ final class IndexabilityDetectorTest extends TestCase
         ));
 
         self::assertSame('page.noindex_x_robots', $findings[0]->code);
+    }
+
+    public function test_googlebot_x_robots_noindex_produces_finding(): void
+    {
+        $findings = (new IndexabilityDetector())->detect($this->context(
+            parsedPage: $this->parsedPage(xRobotsDirectives: [' googlebot: noindex ']),
+        ));
+
+        self::assertContains('page.noindex_x_robots', $this->codes($findings));
+    }
+
+    public function test_unrelated_token_containing_noindex_does_not_produce_noindex_finding(): void
+    {
+        $findings = (new IndexabilityDetector())->detect($this->context(
+            parsedPage: $this->parsedPage(
+                robotsDirectives: ['x-noindex-test'],
+                xRobotsDirectives: ['x-noindex-test'],
+            ),
+        ));
+
+        self::assertNotContains('page.noindex_meta', $this->codes($findings));
+        self::assertNotContains('page.noindex_x_robots', $this->codes($findings));
     }
 
     public function test_canonical_mismatch_produces_finding(): void
@@ -120,7 +160,7 @@ final class IndexabilityDetectorTest extends TestCase
         ?int $statusCode = 200,
         ?string $body = '<html><body>Widget</body></html>',
         ?string $contentType = 'text/html',
-        string $failureType = 'none',
+        ?string $failureType = 'none',
     ): PageSnapshot {
         return new PageSnapshot(
             requestedUrl: 'https://merchant.test/products/widget',

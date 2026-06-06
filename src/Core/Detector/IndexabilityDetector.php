@@ -59,7 +59,7 @@ final readonly class IndexabilityDetector implements Detector
         $findings = [];
         $evidence = $this->snapshotEvidence($context, $snapshot);
 
-        if ($snapshot->failureType !== 'none') {
+        if (is_string($snapshot->failureType) && trim($snapshot->failureType) !== '' && $snapshot->failureType !== 'none') {
             $findings[] = new Finding(
                 code: 'page.fetch_failed',
                 severity: 'high',
@@ -166,12 +166,29 @@ final readonly class IndexabilityDetector implements Detector
     private function directivesContainNoindex(array $directives): bool
     {
         foreach ($directives as $directive) {
-            if (is_string($directive) && str_contains(strtolower($directive), 'noindex')) {
+            if ($this->isNoindexDirective($directive)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    private function isNoindexDirective(mixed $directive): bool
+    {
+        if (!is_string($directive)) {
+            return false;
+        }
+
+        $directive = strtolower(trim($directive));
+
+        if ($directive === 'noindex') {
+            return true;
+        }
+
+        $parts = explode(':', $directive, 2);
+
+        return count($parts) === 2 && trim($parts[0]) !== '' && trim($parts[1]) === 'noindex';
     }
 
     private function canonicalMatchesProduct(DetectionContext $context, string $canonicalUrl): bool
