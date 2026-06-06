@@ -189,6 +189,26 @@ final class IndexabilityDetectorTest extends TestCase
         self::assertSame('2020-01-01T00:00:00+00:00', $findings[0]->evidence['referenceDate']);
     }
 
+    public function test_non_http_date_unavailable_after_produces_invalid_finding(): void
+    {
+        $findings = $this->detector()->detect($this->context(
+            parsedPage: $this->parsedPage(robotsDirectives: ['unavailable_after: 2020-01-01']),
+        ));
+
+        self::assertSame('page.unavailable_after_invalid', $findings[0]->code);
+        self::assertSame('unavailable_after: 2020-01-01', $findings[0]->evidence['directive']);
+    }
+
+    public function test_bot_scoped_non_http_date_unavailable_after_produces_invalid_finding(): void
+    {
+        $findings = $this->detector()->detect($this->context(
+            parsedPage: $this->parsedPage(robotsDirectives: ['googlebot: unavailable_after: 2020-01-01']),
+        ));
+
+        self::assertSame('page.unavailable_after_invalid', $findings[0]->code);
+        self::assertSame('googlebot: unavailable_after: 2020-01-01', $findings[0]->evidence['directive']);
+    }
+
     public function test_bot_scoped_unavailable_after_produces_finding(): void
     {
         $findings = $this->detector()->detect($this->context(

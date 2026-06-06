@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace VisibilityDetector\Core\Detector;
 
 use DateTimeImmutable;
-use Throwable;
 use VisibilityDetector\Core\Page\PageSnapshot;
 use VisibilityDetector\Core\Page\ParsedPage;
 use VisibilityDetector\Core\Report\Finding;
@@ -317,11 +316,7 @@ final readonly class IndexabilityDetector implements Detector
             return $parsedDate;
         }
 
-        try {
-            return new DateTimeImmutable($dateText);
-        } catch (Throwable) {
-            return null;
-        }
+        return null;
     }
 
     /**
