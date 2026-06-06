@@ -83,7 +83,7 @@ Fields:
 Rules:
 
 - `expectedUrl` is required.
-- `name` is required.
+- `name` is optional.
 - Identifiers such as SKU, GTIN, and MPN are optional but useful for future exact-query classification.
 
 ### SearchQuery
