@@ -87,6 +87,48 @@ final class VisibilityAnalyzerTest extends TestCase
         self::assertSame(['https://merchant.test/products/widget'], $fetcher->requestedUrls);
     }
 
+    public function test_analyzer_fetches_and_parses_once_for_multiple_queries_using_first_matched_url(): void
+    {
+        $firstQuery = $this->query(text: 'generic widget');
+        $secondQuery = $this->query(text: 'buy widget');
+        $fetcher = new VisibilityAnalyzerRecordingFetcher();
+        $parser = new VisibilityAnalyzerParsedPageParser(new ParsedPage(url: 'https://merchant.test/products/widget?utm_source=test', robotsDirectives: ['noindex']));
+
+        $report = $this->analyzer(
+            resultSets: [
+                $this->resultSet($firstQuery, [new SearchResult(position: 1, url: 'https://competitor.test/products/widget')]),
+                $this->resultSet($secondQuery, [new SearchResult(position: 2, url: 'https://merchant.test/products/widget?utm_source=test')]),
+            ],
+            pageFetcher: $fetcher,
+            pageParser: $parser,
+        )->analyze($this->product(), [$firstQuery, $secondQuery]);
+
+        self::assertSame(['https://merchant.test/products/widget?utm_source=test'], $fetcher->requestedUrls);
+        self::assertSame(1, $parser->parseCount);
+        self::assertSame('https://merchant.test/products/widget?utm_source=test', $report->pageSnapshot?->requestedUrl);
+        self::assertSame($report->pageSnapshot?->finalUrl, $report->parsedPage?->url);
+        self::assertContains('page.noindex_meta', $this->findingCodes($report->queryVisibilities[0]));
+        self::assertContains('page.noindex_meta', $this->findingCodes($report->queryVisibilities[1]));
+    }
+
+    public function test_analyzer_fetches_once_using_expected_url_when_no_query_matches(): void
+    {
+        $firstQuery = $this->query(text: 'generic widget');
+        $secondQuery = $this->query(text: 'best widget');
+        $fetcher = new VisibilityAnalyzerRecordingFetcher();
+
+        $this->analyzer(
+            resultSets: [
+                $this->resultSet($firstQuery, [new SearchResult(position: 1, url: 'https://competitor.test/products/widget')]),
+                $this->resultSet($secondQuery, [new SearchResult(position: 2, url: 'https://competitor.test/products/widget-2')]),
+            ],
+            pageFetcher: $fetcher,
+            pageParser: new VisibilityAnalyzerParsedPageParser(),
+        )->analyze($this->product(), [$firstQuery, $secondQuery]);
+
+        self::assertSame(['https://merchant.test/products/widget'], $fetcher->requestedUrls);
+    }
+
     public function test_analyzer_includes_indexability_findings_from_parsed_and_fetched_page_evidence(): void
     {
         $query = $this->query();
@@ -259,14 +301,18 @@ final class VisibilityAnalyzerRecordingFetcher implements PageFetcher
     }
 }
 
-final readonly class VisibilityAnalyzerParsedPageParser implements PageParser
+final class VisibilityAnalyzerParsedPageParser implements PageParser
 {
+    public int $parseCount = 0;
+
     public function __construct(private ?ParsedPage $parsedPage = null)
     {
     }
 
     public function parse(PageSnapshot $snapshot): ParsedPage
     {
+        ++$this->parseCount;
+
         return $this->parsedPage ?? new ParsedPage(
             url: $snapshot->finalUrl ?? $snapshot->requestedUrl,
             title: 'Widget',

@@ -45,39 +45,68 @@ final readonly class VisibilityAnalyzer
 
         $resultSets = $this->searchProvider->search($product, $queries);
         $resultSetsByQuery = $this->resultSetsByQuery($queries, $resultSets);
-        $queryVisibilities = [];
-        $reportWarnings = [];
-        $reportPageSnapshot = null;
-        $reportParsedPage = null;
+        $queryEvidence = [];
+        $firstMatchedUrl = null;
 
         foreach ($queries as $query) {
             $resultSet = $resultSetsByQuery[$this->queryKey($query)] ?? new SearchResultSet(query: $query);
             $urlMatch = $this->urlMatcher->match($product, $resultSet);
-            $pageSnapshot = null;
-            $parsedPage = null;
-            $orchestrationFindings = [];
-            $warnings = array_values(array_merge($resultSet->warnings, $resultSet->limitations));
 
-            if ($this->pageFetcher instanceof PageFetcher) {
-                $pageSnapshot = $this->pageFetcher->fetch($this->urlToFetch($product, $urlMatch->matchedUrl));
-                $warnings = array_values(array_merge($warnings, $pageSnapshot->warnings));
-                $reportPageSnapshot ??= $pageSnapshot;
-            } else {
-                $finding = $this->pageFetchSkippedFinding($product, $query, $urlMatch->matchedUrl);
+            if ($firstMatchedUrl === null && $urlMatch->matchedUrl !== null && trim($urlMatch->matchedUrl) !== '') {
+                $firstMatchedUrl = $urlMatch->matchedUrl;
+            }
+
+            $queryEvidence[] = [
+                'query' => $query,
+                'resultSet' => $resultSet,
+                'urlMatch' => $urlMatch,
+            ];
+        }
+
+        $urlToFetch = $this->urlToFetch($product, $firstMatchedUrl);
+        $pageSnapshot = null;
+        $parsedPage = null;
+        $sharedWarnings = [];
+        $sharedFindingFactory = null;
+
+        if ($this->pageFetcher instanceof PageFetcher) {
+            $pageSnapshot = $this->pageFetcher->fetch($urlToFetch);
+            $sharedWarnings = array_values(array_merge($sharedWarnings, $pageSnapshot->warnings));
+        } else {
+            $sharedFindingFactory = fn (SearchQuery $query): Finding => $this->pageFetchSkippedFinding($product, $query, $urlToFetch);
+        }
+
+        $parseSkippedFindingFactory = null;
+
+        if ($this->pageParser instanceof PageParser && $this->hasBodyEvidence($pageSnapshot)) {
+            $parsedPage = $this->pageParser->parse($pageSnapshot);
+            $sharedWarnings = array_values(array_merge($sharedWarnings, $parsedPage->parserWarnings));
+        } elseif (!$this->pageParser instanceof PageParser) {
+            $parseSkippedFindingFactory = fn (SearchQuery $query): Finding => $this->pageParseSkippedFinding($product, $query, $pageSnapshot, 'No PageParser was supplied to the analyzer.');
+        } elseif ($pageSnapshot instanceof PageSnapshot) {
+            $parseSkippedFindingFactory = fn (SearchQuery $query): Finding => $this->pageParseSkippedFinding($product, $query, $pageSnapshot, 'The supplied PageSnapshot did not include body evidence to parse.');
+        }
+
+        $queryVisibilities = [];
+        $reportWarnings = $sharedWarnings;
+
+        foreach ($queryEvidence as $evidence) {
+            /** @var SearchQuery $query */
+            $query = $evidence['query'];
+            /** @var SearchResultSet $resultSet */
+            $resultSet = $evidence['resultSet'];
+            $urlMatch = $evidence['urlMatch'];
+            $orchestrationFindings = [];
+            $warnings = array_values(array_merge($resultSet->warnings, $resultSet->limitations, $sharedWarnings));
+
+            if ($sharedFindingFactory !== null) {
+                $finding = $sharedFindingFactory($query);
                 $orchestrationFindings[] = $finding;
                 $warnings[] = $finding->message;
             }
 
-            if ($this->pageParser instanceof PageParser && $this->hasBodyEvidence($pageSnapshot)) {
-                $parsedPage = $this->pageParser->parse($pageSnapshot);
-                $warnings = array_values(array_merge($warnings, $parsedPage->parserWarnings));
-                $reportParsedPage ??= $parsedPage;
-            } elseif (!$this->pageParser instanceof PageParser) {
-                $finding = $this->pageParseSkippedFinding($product, $query, $pageSnapshot, 'No PageParser was supplied to the analyzer.');
-                $orchestrationFindings[] = $finding;
-                $warnings[] = $finding->message;
-            } elseif ($pageSnapshot instanceof PageSnapshot) {
-                $finding = $this->pageParseSkippedFinding($product, $query, $pageSnapshot, 'The supplied PageSnapshot did not include body evidence to parse.');
+            if ($parseSkippedFindingFactory !== null) {
+                $finding = $parseSkippedFindingFactory($query);
                 $orchestrationFindings[] = $finding;
                 $warnings[] = $finding->message;
             }
@@ -116,9 +145,9 @@ final readonly class VisibilityAnalyzer
         return new VisibilityReport(
             product: $product,
             queryVisibilities: $queryVisibilities,
-            pageSnapshot: $reportPageSnapshot,
-            parsedPage: $reportParsedPage,
-            warnings: $reportWarnings,
+            pageSnapshot: $pageSnapshot,
+            parsedPage: $parsedPage,
+            warnings: array_values(array_unique($reportWarnings)),
             summary: $this->summary($queryVisibilities),
         );
     }
@@ -185,7 +214,7 @@ final readonly class VisibilityAnalyzer
         return $pageSnapshot instanceof PageSnapshot && $pageSnapshot->body !== null && trim($pageSnapshot->body) !== '';
     }
 
-    private function pageFetchSkippedFinding(ProductSubject $product, SearchQuery $query, ?string $matchedUrl): Finding
+    private function pageFetchSkippedFinding(ProductSubject $product, SearchQuery $query, string $urlToFetch): Finding
     {
         return new Finding(
             code: 'analyzer.page_fetch_skipped',
@@ -195,7 +224,7 @@ final readonly class VisibilityAnalyzer
             evidence: [
                 'product' => ['expectedUrl' => $product->expectedUrl],
                 'query' => $query->toArray(),
-                'urlToFetch' => $this->urlToFetch($product, $matchedUrl),
+                'urlToFetch' => $urlToFetch,
                 'reason' => 'page_fetcher_not_supplied',
             ],
             recommendation: 'Supply a fixture-backed or caller-injected PageFetcher to include page-level diagnostics.',
