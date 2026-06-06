@@ -98,6 +98,39 @@ final class CanonicalDetectorTest extends TestCase
         self::assertContains('canonical.points_to_other_url', $this->codes($findings));
     }
 
+
+    public function test_second_relative_canonical_emits_relative_finding(): void
+    {
+        $findings = $this->detector()->detect($this->context(
+            parsedPage: $this->parsedPage(
+                canonicalUrl: 'https://merchant.test/products/widget',
+                canonicalUrls: [
+                    'https://merchant.test/products/widget',
+                    '/products/widget',
+                ],
+            ),
+        ));
+
+        self::assertContains('canonical.relative', $this->codes($findings));
+        self::assertSame('/products/widget', $this->findingByCode($findings, 'canonical.relative')->evidence['offendingCanonicalUrl']);
+    }
+
+    public function test_second_invalid_canonical_emits_invalid_finding(): void
+    {
+        $findings = $this->detector()->detect($this->context(
+            parsedPage: $this->parsedPage(
+                canonicalUrl: 'https://merchant.test/products/widget',
+                canonicalUrls: [
+                    'https://merchant.test/products/widget',
+                    'https://merchant test/products/widget',
+                ],
+            ),
+        ));
+
+        self::assertContains('canonical.invalid', $this->codes($findings));
+        self::assertSame('https://merchant test/products/widget', $this->findingByCode($findings, 'canonical.invalid')->evidence['offendingCanonicalUrl']);
+    }
+
     public function test_multiple_conflicting_canonical_urls_emit_conflict_finding(): void
     {
         $findings = $this->detector()->detect($this->context(

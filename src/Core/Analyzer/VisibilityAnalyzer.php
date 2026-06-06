@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace VisibilityDetector\Core\Analyzer;
 
 use InvalidArgumentException;
+use VisibilityDetector\Core\Detector\CanonicalDetector;
 use VisibilityDetector\Core\Detector\DetectionContext;
 use VisibilityDetector\Core\Detector\IndexabilityDetector;
 use VisibilityDetector\Core\Detector\MetadataDetector;
@@ -33,6 +34,7 @@ final readonly class VisibilityAnalyzer
         private ?PageParser $pageParser = null,
         private IndexabilityDetector $indexabilityDetector = new IndexabilityDetector(),
         private MetadataDetector $metadataDetector = new MetadataDetector(),
+        private CanonicalDetector $canonicalDetector = new CanonicalDetector(),
     ) {
     }
 
@@ -129,6 +131,7 @@ final readonly class VisibilityAnalyzer
 
             if ($parsedPage instanceof ParsedPage) {
                 $detectorFindings = array_merge($detectorFindings, $this->metadataDetector->detect($context));
+                $detectorFindings = array_merge($detectorFindings, $this->canonicalDetector->detect($context));
             }
 
             $queryVisibilities[] = new QueryVisibility(

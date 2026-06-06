@@ -40,86 +40,97 @@ final readonly class CanonicalDetector implements Detector
         }
 
         $findings = [];
-        $normalizedCanonicalUrls = $this->normalizedAbsoluteCanonicalUrls($canonicalUrls);
+        $validAbsoluteCanonicalUrls = [];
 
-        if (count(array_unique($normalizedCanonicalUrls)) > 1) {
+        foreach ($canonicalUrls as $candidateUrl) {
+            if (!$this->isParseableUrl($candidateUrl)) {
+                $findings[] = $this->canonicalUrlFinding(
+                    code: 'canonical.invalid',
+                    severity: 'high',
+                    message: 'A parsed canonical URL could not be parsed as a valid URL.',
+                    evidence: $baseEvidence,
+                    offendingCanonicalUrl: $candidateUrl,
+                    reason: 'canonical_url_invalid',
+                    recommendation: 'Replace invalid canonical hrefs with valid absolute URLs for the product page.',
+                );
+                continue;
+            }
+
+            if (!$this->isAbsoluteUrl($candidateUrl)) {
+                $findings[] = $this->canonicalUrlFinding(
+                    code: 'canonical.relative',
+                    severity: 'medium',
+                    message: 'A parsed canonical URL is relative instead of absolute.',
+                    evidence: $baseEvidence,
+                    offendingCanonicalUrl: $candidateUrl,
+                    reason: 'canonical_url_relative',
+                    recommendation: 'Use fully qualified absolute canonical URLs; do not rely on resolving relative canonical hrefs.',
+                );
+                continue;
+            }
+
+            if (!$this->isValidAbsoluteUrl($candidateUrl)) {
+                $findings[] = $this->canonicalUrlFinding(
+                    code: 'canonical.invalid',
+                    severity: 'high',
+                    message: 'A parsed canonical URL is not a valid absolute URL.',
+                    evidence: $baseEvidence,
+                    offendingCanonicalUrl: $candidateUrl,
+                    reason: 'canonical_absolute_url_invalid',
+                    recommendation: 'Replace invalid canonical hrefs with valid absolute URLs for the product page.',
+                );
+                continue;
+            }
+
+            $validAbsoluteCanonicalUrls[] = $candidateUrl;
+        }
+
+        $normalizedCanonicalUrls = $this->normalizedCanonicalUrls($validAbsoluteCanonicalUrls);
+        $distinctNormalizedCanonicalUrls = array_values(array_unique($normalizedCanonicalUrls));
+
+        if (count($distinctNormalizedCanonicalUrls) > 1) {
             $findings[] = new Finding(
                 code: 'canonical.multiple_conflicting',
                 severity: 'high',
                 confidence: 0.95,
                 message: 'The parsed page declares multiple conflicting canonical URLs.',
                 evidence: $baseEvidence + [
-                    'normalizedCanonicalUrls' => array_values(array_unique($normalizedCanonicalUrls)),
+                    'normalizedCanonicalUrls' => $distinctNormalizedCanonicalUrls,
                     'reason' => 'multiple_distinct_normalized_canonical_urls',
                 ],
                 recommendation: 'Keep exactly one canonical URL for the product page, or ensure duplicate canonical tags all point to the same normalized URL.',
             );
         }
 
-        if (!$this->isParseableUrl($canonicalUrl)) {
-            $findings[] = new Finding(
-                code: 'canonical.invalid',
-                severity: 'high',
-                confidence: 0.95,
-                message: 'The parsed canonical URL could not be parsed as a valid URL.',
-                evidence: $baseEvidence + ['reason' => 'canonical_url_invalid'],
-                recommendation: 'Replace the canonical href with a valid absolute URL for the product page.',
-            );
+        foreach ($validAbsoluteCanonicalUrls as $candidateUrl) {
+            $normalizedCandidateUrl = $this->normalizer->normalize($candidateUrl);
+            $candidateEvidence = $baseEvidence + [
+                'offendingCanonicalUrl' => $candidateUrl,
+                'normalizedCanonicalUrl' => $normalizedCandidateUrl,
+                'normalizedOffendingCanonicalUrl' => $normalizedCandidateUrl,
+            ];
 
-            return $findings;
-        }
+            if ($this->pointsToHomepage($context, $candidateUrl)) {
+                $findings[] = new Finding(
+                    code: 'canonical.points_to_homepage',
+                    severity: 'high',
+                    confidence: 0.95,
+                    message: 'A canonical URL points to the site homepage instead of the product page path.',
+                    evidence: $candidateEvidence + ['reason' => 'canonical_path_is_site_root'],
+                    recommendation: 'Point every canonical URL at the expected product URL or an explicitly acceptable product URL variant.',
+                );
+            }
 
-        if (!$this->isAbsoluteUrl($canonicalUrl)) {
-            $findings[] = new Finding(
-                code: 'canonical.relative',
-                severity: 'medium',
-                confidence: 0.95,
-                message: 'The parsed canonical URL is relative instead of absolute.',
-                evidence: $baseEvidence + ['reason' => 'canonical_url_relative'],
-                recommendation: 'Use a fully qualified absolute canonical URL; do not rely on resolving a relative canonical href.',
-            );
-
-            return $findings;
-        }
-
-        if (!$this->isValidAbsoluteUrl($canonicalUrl)) {
-            $findings[] = new Finding(
-                code: 'canonical.invalid',
-                severity: 'high',
-                confidence: 0.95,
-                message: 'The parsed canonical URL is not a valid absolute URL.',
-                evidence: $baseEvidence + ['reason' => 'canonical_absolute_url_invalid'],
-                recommendation: 'Replace the canonical href with a valid absolute URL for the product page.',
-            );
-
-            return $findings;
-        }
-
-        $normalizedCanonicalUrl = $this->normalizer->normalize($canonicalUrl);
-        $evidence = $baseEvidence + [
-            'normalizedCanonicalUrl' => $normalizedCanonicalUrl,
-        ];
-
-        if ($this->pointsToHomepage($context, $canonicalUrl)) {
-            $findings[] = new Finding(
-                code: 'canonical.points_to_homepage',
-                severity: 'high',
-                confidence: 0.95,
-                message: 'The canonical URL points to the site homepage instead of the product page path.',
-                evidence: $evidence + ['reason' => 'canonical_path_is_site_root'],
-                recommendation: 'Point the canonical URL at the expected product URL or an explicitly acceptable product URL variant.',
-            );
-        }
-
-        if (!in_array($normalizedCanonicalUrl, $this->normalizedAcceptedUrls($context), true)) {
-            $findings[] = new Finding(
-                code: 'canonical.points_to_other_url',
-                severity: 'high',
-                confidence: 0.95,
-                message: 'The canonical URL does not match the expected product URL or its acceptable variants.',
-                evidence: $evidence + ['reason' => 'canonical_not_in_expected_or_acceptable_urls'],
-                recommendation: 'Point the canonical URL at the expected product URL or an explicitly acceptable product URL variant.',
-            );
+            if (!in_array($normalizedCandidateUrl, $this->normalizedAcceptedUrls($context), true)) {
+                $findings[] = new Finding(
+                    code: 'canonical.points_to_other_url',
+                    severity: 'high',
+                    confidence: 0.95,
+                    message: 'A canonical URL does not match the expected product URL or its acceptable variants.',
+                    evidence: $candidateEvidence + ['reason' => 'canonical_not_in_expected_or_acceptable_urls'],
+                    recommendation: 'Point every canonical URL at the expected product URL or an explicitly acceptable product URL variant.',
+                );
+            }
         }
 
         return $findings;
@@ -146,17 +157,34 @@ final readonly class CanonicalDetector implements Detector
      * @param array<int, string> $canonicalUrls
      * @return array<int, string>
      */
-    private function normalizedAbsoluteCanonicalUrls(array $canonicalUrls): array
+    private function normalizedCanonicalUrls(array $canonicalUrls): array
     {
-        $normalized = [];
+        return array_map(
+            fn (string $url): string => $this->normalizer->normalize($url),
+            $canonicalUrls,
+        );
+    }
 
-        foreach ($canonicalUrls as $url) {
-            if ($this->isParseableUrl($url) && $this->isAbsoluteUrl($url) && $this->isValidAbsoluteUrl($url)) {
-                $normalized[] = $this->normalizer->normalize($url);
-            }
-        }
-
-        return $normalized;
+    private function canonicalUrlFinding(
+        string $code,
+        string $severity,
+        string $message,
+        array $evidence,
+        string $offendingCanonicalUrl,
+        string $reason,
+        string $recommendation,
+    ): Finding {
+        return new Finding(
+            code: $code,
+            severity: $severity,
+            confidence: 0.95,
+            message: $message,
+            evidence: $evidence + [
+                'offendingCanonicalUrl' => $offendingCanonicalUrl,
+                'reason' => $reason,
+            ],
+            recommendation: $recommendation,
+        );
     }
 
     private function isParseableUrl(string $url): bool
