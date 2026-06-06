@@ -1,6 +1,6 @@
 {
-    "name": "mquevedob/visibility",
-    "description": "Search visibility diagnostics toolkit for ecommerce products and web pages",
+    "name": "mquevedob/visibility-detector",
+    "description": "Deterministic visibility diagnostics core for ecommerce products and web pages",
     "type": "library",
     "require": {
         "php": "^8.2"
@@ -8,7 +8,7 @@
     "license": "MIT",
     "autoload": {
         "psr-4": {
-            "MQuevedoB\\Visibility\\": "src/"
+            "VisibilityDetector\\": "src/"
         }
     },
     "require-dev": {
