@@ -2,10 +2,18 @@
 
 declare(strict_types=1);
 
+use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
+use VisibilityDetector\Core\Detector\DetectionContext;
+use VisibilityDetector\Core\Detector\IndexabilityDetector;
 use VisibilityDetector\Core\Page\DomPageParser;
 use VisibilityDetector\Core\Page\PageParser;
 use VisibilityDetector\Core\Page\PageSnapshot;
+use VisibilityDetector\Core\Page\ParsedPage;
+use VisibilityDetector\Core\Product\ProductSubject;
+use VisibilityDetector\Core\Search\SearchQuery;
+use VisibilityDetector\Core\Search\SearchResultSet;
+use VisibilityDetector\Core\Url\UrlMatch;
 
 final class DomPageParserTest extends TestCase
 {
@@ -54,6 +62,16 @@ final class DomPageParserTest extends TestCase
         ], $parsed->robotsDirectives);
     }
 
+    public function test_preserves_bot_scoped_meta_robots_unavailable_after_http_date(): void
+    {
+        $parsed = $this->parser->parse($this->snapshot('<html><head><meta name="robots" content="googlebot: unavailable_after: Wed, 21 Oct 2015 07:28:00 GMT, nofollow"></head><body>Widget</body></html>'));
+
+        self::assertSame([
+            'googlebot: unavailable_after: Wed, 21 Oct 2015 07:28:00 GMT',
+            'nofollow',
+        ], $parsed->robotsDirectives);
+    }
+
     public function test_parses_x_robots_tag_header(): void
     {
         $parsed = $this->parser->parse($this->snapshot(
@@ -76,6 +94,27 @@ final class DomPageParserTest extends TestCase
             'unavailable_after: Wed, 21 Oct 2015 07:28:00 GMT',
             'nofollow',
         ], $parsed->xRobotsDirectives);
+    }
+
+    public function test_preserves_bot_scoped_x_robots_tag_unavailable_after_http_date(): void
+    {
+        $parsed = $this->parser->parse($this->snapshot(
+            '<html><body>Widget</body></html>',
+            headers: ['X-Robots-Tag' => ['googlebot: unavailable_after: Wed, 21 Oct 2015 07:28:00 GMT, nofollow']],
+        ));
+
+        self::assertSame([
+            'googlebot: unavailable_after: Wed, 21 Oct 2015 07:28:00 GMT',
+            'nofollow',
+        ], $parsed->xRobotsDirectives);
+    }
+
+    public function test_indexability_detector_detects_parsed_bot_scoped_unavailable_after(): void
+    {
+        $parsed = $this->parser->parse($this->snapshot('<html><head><meta name="robots" content="googlebot: unavailable_after: Wed, 21 Oct 2015 07:28:00 GMT"></head><body>Widget</body></html>'));
+        $findings = (new IndexabilityDetector(now: new DateTimeImmutable('2020-01-01 00:00:00 UTC')))->detect($this->context($parsed));
+
+        self::assertContains('page.unavailable_after_expired', array_map(static fn ($finding): string => $finding->code, $findings));
     }
 
     public function test_extracts_hreflang_links(): void
@@ -238,6 +277,23 @@ final class DomPageParserTest extends TestCase
         self::assertStringStartsWith('Useful widget content', $parsed->bodyTextSummary);
         self::assertStringNotContainsString('ignored()', $parsed->bodyTextSummary);
         self::assertLessThanOrEqual(500, strlen($parsed->bodyTextSummary));
+    }
+
+    private function context(ParsedPage $parsedPage): DetectionContext
+    {
+        $query = new SearchQuery(text: 'widget', provider: 'static');
+
+        return new DetectionContext(
+            product: new ProductSubject(expectedUrl: 'https://merchant.test/products/widget'),
+            query: $query,
+            resultSet: new SearchResultSet(query: $query),
+            urlMatch: new UrlMatch(
+                matched: false,
+                matchType: 'none',
+                expectedUrl: 'https://merchant.test/products/widget',
+            ),
+            parsedPage: $parsedPage,
+        );
     }
 
     /**
