@@ -51,16 +51,45 @@ final readonly class UrlNormalizer
 
     private function normalizeQuery(string $query): string
     {
-        $parameters = array_filter(
-            explode('&', $query),
-            static function (string $parameter): bool {
-                $name = explode('=', $parameter, 2)[0];
+        $parameters = [];
 
-                return !in_array(strtolower(rawurldecode($name)), self::TRACKING_PARAMETERS, true);
+        foreach (explode('&', $query) as $parameter) {
+            $parts = explode('=', $parameter, 2);
+            $name = $parts[0];
+            $value = $parts[1] ?? '';
+            $decodedName = rawurldecode($name);
+
+            if (in_array(strtolower($decodedName), self::TRACKING_PARAMETERS, true)) {
+                continue;
+            }
+
+            $parameters[] = [
+                'raw' => $parameter,
+                'name' => $name,
+                'value' => $value,
+                'decodedName' => $decodedName,
+                'decodedValue' => rawurldecode($value),
+            ];
+        }
+
+        usort(
+            $parameters,
+            static function (array $left, array $right): int {
+                return strcmp($left['decodedName'], $right['decodedName'])
+                    ?: strcmp($left['decodedValue'], $right['decodedValue'])
+                    ?: strcmp($left['name'], $right['name'])
+                    ?: strcmp($left['value'], $right['value'])
+                    ?: strcmp($left['raw'], $right['raw']);
             },
         );
 
-        return implode('&', $parameters);
+        return implode(
+            '&',
+            array_map(
+                static fn (array $parameter): string => $parameter['raw'],
+                $parameters,
+            ),
+        );
     }
 
     /**

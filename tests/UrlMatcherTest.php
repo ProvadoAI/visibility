@@ -8,6 +8,7 @@ use VisibilityDetector\Core\Search\SearchQuery;
 use VisibilityDetector\Core\Search\SearchResult;
 use VisibilityDetector\Core\Search\SearchResultSet;
 use VisibilityDetector\Core\Url\DefaultUrlMatcher;
+use VisibilityDetector\Core\Url\UrlNormalizer;
 
 final class UrlMatcherTest extends TestCase
 {
@@ -89,6 +90,27 @@ final class UrlMatcherTest extends TestCase
         );
     }
 
+    public function test_same_meaningful_query_parameters_in_different_order_match_after_normalization(): void
+    {
+        $match = $this->matcher->match(
+            new ProductSubject(expectedUrl: 'https://merchant.test/products/widget?color=red&size=m'),
+            $this->resultSet([
+                new SearchResult(position: 1, url: 'https://merchant.test/products/widget?size=m&color=red'),
+            ]),
+        );
+
+        self::assertTrue($match->matched);
+        self::assertSame('normalized', $match->matchType);
+        self::assertSame(
+            'https://merchant.test/products/widget?color=red&size=m',
+            $match->evidence['normalizedExpectedUrl'],
+        );
+        self::assertSame(
+            'https://merchant.test/products/widget?color=red&size=m',
+            $match->evidence['normalizedResultUrl'],
+        );
+    }
+
     public function test_acceptable_variant_match(): void
     {
         $match = $this->matcher->match(
@@ -106,7 +128,7 @@ final class UrlMatcherTest extends TestCase
         self::assertSame('https://merchant.test/widget?sku=123&utm_campaign=spring', $match->evidence['acceptableUrlVariant']);
     }
 
-    public function test_meaningful_query_parameters_are_preserved(): void
+    public function test_different_meaningful_query_parameter_values_do_not_match(): void
     {
         $match = $this->matcher->match(
             new ProductSubject(expectedUrl: 'https://merchant.test/products/widget?color=red'),
@@ -117,6 +139,20 @@ final class UrlMatcherTest extends TestCase
 
         self::assertFalse($match->matched);
         self::assertSame('none', $match->matchType);
+    }
+
+    public function test_duplicate_meaningful_parameters_normalize_deterministically(): void
+    {
+        $normalizer = new UrlNormalizer();
+
+        self::assertSame(
+            'https://merchant.test/products/widget?color=blue&color=red&size=m',
+            $normalizer->normalize('https://merchant.test/products/widget?size=m&color=red&utm_medium=cpc&color=blue'),
+        );
+        self::assertSame(
+            'https://merchant.test/products/widget?color=blue&color=red&size=m',
+            $normalizer->normalize('https://merchant.test/products/widget?color=blue&size=m&color=red&fbclid=abc'),
+        );
     }
 
     public function test_no_match(): void
