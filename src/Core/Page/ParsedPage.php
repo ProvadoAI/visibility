@@ -25,9 +25,16 @@ final readonly class ParsedPage
         public array $offerSchemaCandidates = [],
         public ?string $bodyTextSummary = null,
         public array $parserWarnings = [],
+        public array $canonicalUrls = [],
     ) {
         if (trim($url) === '') {
             throw new InvalidArgumentException('url must not be empty.');
+        }
+
+        foreach ($canonicalUrls as $canonicalUrlValue) {
+            if (!is_string($canonicalUrlValue)) {
+                throw new InvalidArgumentException('canonicalUrls must contain only strings.');
+            }
         }
     }
 
@@ -50,6 +57,7 @@ final readonly class ParsedPage
             offerSchemaCandidates: $data['offerSchemaCandidates'] ?? [],
             bodyTextSummary: self::optionalString($data, 'bodyTextSummary'),
             parserWarnings: $data['parserWarnings'] ?? [],
+            canonicalUrls: $data['canonicalUrls'] ?? [],
         );
     }
 
@@ -72,6 +80,7 @@ final readonly class ParsedPage
             'offerSchemaCandidates' => $this->offerSchemaCandidates,
             'bodyTextSummary' => $this->bodyTextSummary,
             'parserWarnings' => $this->parserWarnings,
+            'canonicalUrls' => $this->canonicalUrls,
         ];
     }
 

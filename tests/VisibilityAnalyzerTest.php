@@ -180,6 +180,27 @@ final class VisibilityAnalyzerTest extends TestCase
         self::assertContains('malformed json-ld', $report->warnings);
     }
 
+
+    public function test_analyzer_report_includes_canonical_detector_findings(): void
+    {
+        $query = $this->query();
+        $report = $this->analyzer(
+            resultSets: [$this->resultSet($query, [new SearchResult(position: 1, url: 'https://merchant.test/products/widget')])],
+            pageFetcher: new VisibilityAnalyzerRecordingFetcher(),
+            pageParser: new VisibilityAnalyzerParsedPageParser(new ParsedPage(
+                url: 'https://merchant.test/products/widget',
+                title: 'Widget',
+                metaDescription: 'Widget page',
+                canonicalUrl: 'https://merchant.test/products/other-widget',
+                h1: 'Widget',
+                productSchemaCandidates: [['@type' => 'Product']],
+                offerSchemaCandidates: [['@type' => 'Offer']],
+            )),
+        )->analyze($this->product(), [$query]);
+
+        self::assertContains('canonical.points_to_other_url', $this->findingCodes($report->queryVisibilities[0]));
+    }
+
     public function test_analyzer_can_run_without_page_fetcher_and_emits_deterministic_skipped_finding(): void
     {
         $query = $this->query();
