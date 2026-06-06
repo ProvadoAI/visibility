@@ -329,9 +329,7 @@ final class DomPageParser implements PageParser
 
         foreach (str_split($value) as $character) {
             if ($character === ',' || $character === ';') {
-                $isUnavailableAfter = str_starts_with(strtolower(trim($current)), 'unavailable_after:');
-
-                if ($isUnavailableAfter && $character === ',' && !$unavailableAfterDateCommaSeen) {
+                if ($this->isUnavailableAfterDirectivePrefix($current) && $character === ',' && !$unavailableAfterDateCommaSeen) {
                     $current .= $character;
                     $unavailableAfterDateCommaSeen = true;
                     continue;
@@ -349,6 +347,21 @@ final class DomPageParser implements PageParser
         $directives[] = trim($current);
 
         return array_values(array_unique(array_filter($directives)));
+    }
+
+    private function isUnavailableAfterDirectivePrefix(string $directive): bool
+    {
+        $normalized = strtolower(trim($directive));
+
+        if (str_starts_with($normalized, 'unavailable_after:')) {
+            return true;
+        }
+
+        $parts = explode(':', $normalized, 2);
+
+        return count($parts) === 2
+            && trim($parts[0]) !== ''
+            && str_starts_with(trim($parts[1]), 'unavailable_after:');
     }
 
     private function bodyTextSummary(DOMXPath $xpath): ?string
