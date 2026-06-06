@@ -17,7 +17,7 @@ final readonly class PageSnapshot
         public ?string $contentType = null,
         public array $redirects = [],
         public ?int $durationMs = null,
-        public string $failureType = 'none',
+        public ?string $failureType = 'none',
         public array $warnings = [],
     ) {
         if (trim($requestedUrl) === '') {
@@ -32,7 +32,7 @@ final readonly class PageSnapshot
             throw new InvalidArgumentException('durationMs must be greater than or equal to 0.');
         }
 
-        if (!in_array($failureType, ['none', 'dns_not_found', 'timeout', 'connection_refused', 'ssl_error', 'http_error', 'invalid_response', 'unknown'], true)) {
+        if ($failureType !== null && !in_array($failureType, ['none', 'dns_not_found', 'timeout', 'connection_refused', 'ssl_error', 'http_error', 'invalid_response', 'unknown'], true)) {
             throw new InvalidArgumentException('failureType is invalid.');
         }
     }
@@ -48,7 +48,7 @@ final readonly class PageSnapshot
             contentType: self::optionalString($data, 'contentType'),
             redirects: $data['redirects'] ?? [],
             durationMs: self::optionalInt($data, 'durationMs'),
-            failureType: self::optionalString($data, 'failureType') ?? 'none',
+            failureType: array_key_exists('failureType', $data) ? self::optionalString($data, 'failureType') : 'none',
             warnings: $data['warnings'] ?? [],
         );
     }
