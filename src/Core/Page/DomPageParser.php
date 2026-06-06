@@ -71,6 +71,7 @@ final class DomPageParser implements PageParser
             offerSchemaCandidates: $offerCandidates,
             bodyTextSummary: $this->bodyTextSummary($xpath),
             parserWarnings: $warnings,
+            canonicalUrls: $this->canonicalUrls($xpath),
         );
     }
 
@@ -278,6 +279,27 @@ final class DomPageParser implements PageParser
         }
 
         return array_values(array_unique($directives));
+    }
+
+
+    /**
+     * @return array<int, string>
+     */
+    private function canonicalUrls(DOMXPath $xpath): array
+    {
+        $urls = [];
+        foreach ($xpath->query('//link[contains(concat(" ", normalize-space(translate(@rel, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")), " "), " canonical ")][@href]') ?: [] as $node) {
+            if (!$node instanceof DOMElement) {
+                continue;
+            }
+
+            $href = trim($node->getAttribute('href'));
+            if ($href !== '') {
+                $urls[] = $href;
+            }
+        }
+
+        return $urls;
     }
 
     private function firstMetaContent(DOMXPath $xpath, string $name): ?string

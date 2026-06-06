@@ -44,6 +44,22 @@ final class DomPageParserTest extends TestCase
         self::assertSame('Buy Widget', $parsed->h1);
     }
 
+    public function test_extracts_multiple_canonical_link_hrefs(): void
+    {
+        $parsed = $this->parser->parse($this->snapshot(<<<'HTML'
+            <html><head>
+                <link rel="canonical" href="https://merchant.test/products/widget">
+                <link rel="canonical" href="https://merchant.test/products/widget?variant=blue">
+            </head><body>Widget</body></html>
+            HTML));
+
+        self::assertSame('https://merchant.test/products/widget', $parsed->canonicalUrl);
+        self::assertSame([
+            'https://merchant.test/products/widget',
+            'https://merchant.test/products/widget?variant=blue',
+        ], $parsed->canonicalUrls);
+    }
+
     public function test_parses_meta_robots(): void
     {
         $parsed = $this->parser->parse($this->snapshot('<html><head><meta name="robots" content="noindex, nofollow, max-snippet:0"></head><body>Widget</body></html>'));
