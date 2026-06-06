@@ -43,6 +43,17 @@ final class DomPageParserTest extends TestCase
         self::assertSame(['noindex', 'nofollow', 'max-snippet:0'], $parsed->robotsDirectives);
     }
 
+    public function test_preserves_meta_robots_unavailable_after_http_date(): void
+    {
+        $parsed = $this->parser->parse($this->snapshot('<html><head><meta name="robots" content="noindex, unavailable_after: Wed, 21 Oct 2015 07:28:00 GMT, nofollow"></head><body>Widget</body></html>'));
+
+        self::assertSame([
+            'noindex',
+            'unavailable_after: Wed, 21 Oct 2015 07:28:00 GMT',
+            'nofollow',
+        ], $parsed->robotsDirectives);
+    }
+
     public function test_parses_x_robots_tag_header(): void
     {
         $parsed = $this->parser->parse($this->snapshot(
@@ -51,6 +62,20 @@ final class DomPageParserTest extends TestCase
         ));
 
         self::assertSame(['noindex', 'noarchive', 'googlebot: nofollow'], $parsed->xRobotsDirectives);
+    }
+
+    public function test_preserves_x_robots_tag_unavailable_after_http_date(): void
+    {
+        $parsed = $this->parser->parse($this->snapshot(
+            '<html><body>Widget</body></html>',
+            headers: ['X-Robots-Tag' => ['noindex, unavailable_after: Wed, 21 Oct 2015 07:28:00 GMT, nofollow']],
+        ));
+
+        self::assertSame([
+            'noindex',
+            'unavailable_after: Wed, 21 Oct 2015 07:28:00 GMT',
+            'nofollow',
+        ], $parsed->xRobotsDirectives);
     }
 
     public function test_extracts_hreflang_links(): void
@@ -173,11 +198,33 @@ final class DomPageParserTest extends TestCase
         self::assertStringContainsString('body is empty', $parsed->parserWarnings[0]);
     }
 
+    public function test_empty_body_preserves_x_robots_tag_header(): void
+    {
+        $parsed = $this->parser->parse($this->snapshot('', headers: ['X-Robots-Tag' => ['noindex']]));
+
+        self::assertSame(['noindex'], $parsed->xRobotsDirectives);
+        self::assertNotEmpty($parsed->parserWarnings);
+        self::assertStringContainsString('body is empty', $parsed->parserWarnings[0]);
+    }
+
     public function test_non_html_content_type_returns_warning(): void
     {
         $parsed = $this->parser->parse($this->snapshot('{"name":"Widget"}', contentType: 'application/json'));
 
         self::assertNull($parsed->title);
+        self::assertNotEmpty($parsed->parserWarnings);
+        self::assertStringContainsString('contentType is not HTML', $parsed->parserWarnings[0]);
+    }
+
+    public function test_non_html_content_type_preserves_x_robots_tag_header(): void
+    {
+        $parsed = $this->parser->parse($this->snapshot(
+            '{"name":"Widget"}',
+            headers: ['X-Robots-Tag' => ['noindex']],
+            contentType: 'application/json',
+        ));
+
+        self::assertSame(['noindex'], $parsed->xRobotsDirectives);
         self::assertNotEmpty($parsed->parserWarnings);
         self::assertStringContainsString('contentType is not HTML', $parsed->parserWarnings[0]);
     }

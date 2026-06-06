@@ -17,17 +17,18 @@ final class DomPageParser implements PageParser
     {
         $url = $snapshot->finalUrl ?: $snapshot->requestedUrl;
         $warnings = [];
+        $xRobotsDirectives = $this->extractXRobotsDirectives($snapshot->headers);
 
         if ($snapshot->body === null || trim($snapshot->body) === '') {
-            return $this->emptyParsedPage($url, ['PageSnapshot body is empty; no HTML was available to parse.']);
+            return $this->emptyParsedPage($url, ['PageSnapshot body is empty; no HTML was available to parse.'], $xRobotsDirectives);
         }
 
         if ($snapshot->contentType !== null && !$this->isHtmlContentType($snapshot->contentType)) {
-            return $this->emptyParsedPage($url, ['PageSnapshot contentType is not HTML: ' . $snapshot->contentType]);
+            return $this->emptyParsedPage($url, ['PageSnapshot contentType is not HTML: ' . $snapshot->contentType], $xRobotsDirectives);
         }
 
         if (!class_exists(DOMDocument::class) || !class_exists(DOMXPath::class)) {
-            return $this->emptyParsedPage($url, ['PHP DOM extension is not available; HTML could not be parsed.']);
+            return $this->emptyParsedPage($url, ['PHP DOM extension is not available; HTML could not be parsed.'], $xRobotsDirectives);
         }
 
         $document = new DOMDocument();
@@ -59,7 +60,7 @@ final class DomPageParser implements PageParser
             metaDescription: $this->firstMetaContent($xpath, 'description'),
             canonicalUrl: $this->firstAttribute($xpath, '//link[contains(concat(" ", normalize-space(translate(@rel, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")), " "), " canonical ")]', 'href'),
             robotsDirectives: $this->splitDirectives($this->firstMetaContent($xpath, 'robots')),
-            xRobotsDirectives: $this->extractXRobotsDirectives($snapshot->headers),
+            xRobotsDirectives: $xRobotsDirectives,
             hreflangLinks: $this->extractHreflangLinks($xpath),
             h1: $this->firstText($xpath, '//h1'),
             headings: $this->extractHeadings($xpath),
@@ -322,12 +323,32 @@ final class DomPageParser implements PageParser
             return [];
         }
 
-        $directives = preg_split('/[,;]/', strtolower($value)) ?: [];
+        $directives = [];
+        $current = '';
+        $unavailableAfterDateCommaSeen = false;
 
-        return array_values(array_unique(array_filter(array_map(
-            static fn (string $directive): string => trim($directive),
-            $directives,
-        ))));
+        foreach (str_split($value) as $character) {
+            if ($character === ',' || $character === ';') {
+                $isUnavailableAfter = str_starts_with(strtolower(trim($current)), 'unavailable_after:');
+
+                if ($isUnavailableAfter && $character === ',' && !$unavailableAfterDateCommaSeen) {
+                    $current .= $character;
+                    $unavailableAfterDateCommaSeen = true;
+                    continue;
+                }
+
+                $directives[] = trim($current);
+                $current = '';
+                $unavailableAfterDateCommaSeen = false;
+                continue;
+            }
+
+            $current .= $character;
+        }
+
+        $directives[] = trim($current);
+
+        return array_values(array_unique(array_filter($directives)));
     }
 
     private function bodyTextSummary(DOMXPath $xpath): ?string
@@ -361,9 +382,9 @@ final class DomPageParser implements PageParser
     /**
      * @param array<int, string> $warnings
      */
-    private function emptyParsedPage(string $url, array $warnings): ParsedPage
+    private function emptyParsedPage(string $url, array $warnings, array $xRobotsDirectives = []): ParsedPage
     {
-        return new ParsedPage(url: $url, parserWarnings: $warnings);
+        return new ParsedPage(url: $url, xRobotsDirectives: $xRobotsDirectives, parserWarnings: $warnings);
     }
 
     /**
