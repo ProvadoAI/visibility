@@ -77,6 +77,21 @@ final class ContentAlignmentDetectorTest extends TestCase
         self::assertContains('content.description_too_thin', $this->codes($findings));
     }
 
+    public function test_short_non_ascii_meta_description_counts_visible_characters(): void
+    {
+        $findings = $this->detect([], $this->page(metaDescription: 'Árbol'));
+        $finding = $this->findingByCode($findings, 'content.description_too_thin');
+
+        self::assertNotNull($finding);
+
+        if (function_exists('mb_strlen')) {
+            self::assertSame(5, $finding->evidence['visibleCharacterCount']);
+            self::assertNotSame(strlen('Árbol'), $finding->evidence['visibleCharacterCount']);
+        } else {
+            self::assertSame(strlen('Árbol'), $finding->evidence['visibleCharacterCount']);
+        }
+    }
+
     public function test_missing_meta_description_does_not_also_emit_description_too_thin(): void
     {
         $findings = $this->detect([], $this->page(metaDescription: '   '));
@@ -105,6 +120,23 @@ final class ContentAlignmentDetectorTest extends TestCase
             title: 'premium widget',
             h1: 'PREMIUM WIDGET',
             bodyTextSummary: 'Shop the Premium Widget today.',
+        ));
+
+        self::assertNotContains('content.title_missing_product_terms', $this->codes($findings));
+        self::assertNotContains('content.h1_missing_product_terms', $this->codes($findings));
+        self::assertNotContains('content.body_missing_product_terms', $this->codes($findings));
+    }
+
+    public function test_matching_is_unicode_case_insensitive_for_title_h1_and_body(): void
+    {
+        if (!function_exists('mb_strtolower')) {
+            self::markTestSkipped('Unicode case-insensitive matching requires mb_strtolower.');
+        }
+
+        $findings = $this->detect(['Árbol'], $this->page(
+            title: 'árbol artesanal',
+            h1: 'árbol artesanal',
+            bodyTextSummary: 'Este árbol artesanal está disponible.',
         ));
 
         self::assertNotContains('content.title_missing_product_terms', $this->codes($findings));
@@ -176,6 +208,20 @@ final class ContentAlignmentDetectorTest extends TestCase
             h1: $h1,
             bodyTextSummary: $bodyTextSummary,
         );
+    }
+
+    /**
+     * @param array<int, Finding> $findings
+     */
+    private function findingByCode(array $findings, string $code): ?Finding
+    {
+        foreach ($findings as $finding) {
+            if ($finding->code === $code) {
+                return $finding;
+            }
+        }
+
+        return null;
     }
 
     /**

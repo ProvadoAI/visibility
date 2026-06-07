@@ -55,19 +55,24 @@ final readonly class ContentAlignmentDetector implements Detector
                 ],
                 recommendation: 'Add a concise meta description that describes the product and its important attributes.',
             );
-        } elseif (strlen(trim((string) $parsedPage->metaDescription)) < self::DESCRIPTION_MIN_VISIBLE_CHARACTERS) {
-            $findings[] = new Finding(
-                code: 'content.description_too_thin',
-                severity: 'low',
-                confidence: 0.85,
-                message: 'The parsed page meta description is shorter than the deterministic minimum length threshold.',
-                evidence: [
-                    'metaDescription' => $parsedPage->metaDescription,
-                    'visibleCharacterCount' => strlen(trim((string) $parsedPage->metaDescription)),
-                    'minimumVisibleCharacters' => self::DESCRIPTION_MIN_VISIBLE_CHARACTERS,
-                ],
-                recommendation: 'Expand the meta description with useful product details while keeping it concise.',
-            );
+        } else {
+            $description = trim((string) $parsedPage->metaDescription);
+            $visibleCharacterCount = $this->visibleLength($description);
+
+            if ($visibleCharacterCount < self::DESCRIPTION_MIN_VISIBLE_CHARACTERS) {
+                $findings[] = new Finding(
+                    code: 'content.description_too_thin',
+                    severity: 'low',
+                    confidence: 0.85,
+                    message: 'The parsed page meta description is shorter than the deterministic minimum length threshold.',
+                    evidence: [
+                        'metaDescription' => $parsedPage->metaDescription,
+                        'visibleCharacterCount' => $visibleCharacterCount,
+                        'minimumVisibleCharacters' => self::DESCRIPTION_MIN_VISIBLE_CHARACTERS,
+                    ],
+                    recommendation: 'Expand the meta description with useful product details while keeping it concise.',
+                );
+            }
         }
 
         if ($expectedTerms !== []) {
@@ -149,16 +154,34 @@ final readonly class ContentAlignmentDetector implements Detector
             return [];
         }
 
-        $haystack = strtolower((string) $value);
+        $haystack = $this->lower((string) $value);
         $matchedTerms = [];
 
         foreach ($expectedTerms as $term) {
-            if (str_contains($haystack, strtolower($term))) {
+            if (str_contains($haystack, $this->lower($term))) {
                 $matchedTerms[] = $term;
             }
         }
 
         return $matchedTerms;
+    }
+
+    private function lower(string $value): string
+    {
+        if (function_exists('mb_strtolower')) {
+            return mb_strtolower($value, 'UTF-8');
+        }
+
+        return strtolower($value);
+    }
+
+    private function visibleLength(string $value): int
+    {
+        if (function_exists('mb_strlen')) {
+            return mb_strlen($value, 'UTF-8');
+        }
+
+        return strlen($value);
     }
 
     private function excerpt(?string $value): ?string
