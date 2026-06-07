@@ -102,6 +102,82 @@ final class ReportSummarizerTest extends TestCase
         self::assertSame('visibility_quality', $summary->topProbableCauses[0]['category']);
     }
 
+    public function test_repeated_page_noindex_across_queries_appears_once_in_top_probable_causes(): void
+    {
+        $summary = $this->summarizer()->summarize($this->product(), [
+            $this->queryVisibility(
+                query: $this->query(text: 'alpha widget'),
+                findings: [$this->finding('page.noindex_meta', 'high')],
+            ),
+            $this->queryVisibility(
+                query: $this->query(text: 'beta widget'),
+                findings: [$this->finding('page.noindex_meta', 'high')],
+            ),
+        ]);
+
+        self::assertSame(['page.noindex_meta'], array_column($summary->topProbableCauses, 'code'));
+    }
+
+    public function test_repeated_page_noindex_does_not_hide_next_distinct_issue(): void
+    {
+        $summary = $this->summarizer()->summarize($this->product(), [
+            $this->queryVisibility(
+                query: $this->query(text: 'alpha widget'),
+                findings: [
+                    $this->finding('page.noindex_meta', 'high'),
+                    $this->finding('canonical.points_to_other_url', 'high'),
+                ],
+            ),
+            $this->queryVisibility(
+                query: $this->query(text: 'beta widget'),
+                findings: [$this->finding('page.noindex_meta', 'high')],
+            ),
+        ]);
+
+        self::assertSame([
+            'page.noindex_meta',
+            'canonical.points_to_other_url',
+        ], array_column($summary->topProbableCauses, 'code'));
+    }
+
+    public function test_deduplicated_page_issue_preserves_affected_queries(): void
+    {
+        $summary = $this->summarizer()->summarize($this->product(), [
+            $this->queryVisibility(
+                query: $this->query(text: 'beta widget'),
+                findings: [$this->finding('page.noindex_meta', 'high')],
+            ),
+            $this->queryVisibility(
+                query: $this->query(text: 'alpha widget'),
+                findings: [$this->finding('page.noindex_meta', 'high')],
+            ),
+        ]);
+
+        self::assertSame('alpha widget', $summary->topProbableCauses[0]['affectedQuery']);
+        self::assertSame(['alpha widget', 'beta widget'], $summary->topProbableCauses[0]['affectedQueries']);
+        self::assertSame(['alpha widget', 'beta widget'], $summary->evidenceReferences[0]['affectedQueries']);
+    }
+
+    public function test_query_specific_not_found_findings_are_not_collapsed_across_queries(): void
+    {
+        $summary = $this->summarizer()->summarize($this->product(), [
+            $this->queryVisibility(
+                query: $this->query(text: 'alpha widget'),
+                findings: [$this->finding('product.not_found_in_results', 'medium')],
+            ),
+            $this->queryVisibility(
+                query: $this->query(text: 'beta widget'),
+                findings: [$this->finding('product.not_found_in_results', 'medium')],
+            ),
+        ]);
+
+        self::assertSame([
+            'product.not_found_in_results',
+            'product.not_found_in_results',
+        ], array_column($summary->topProbableCauses, 'code'));
+        self::assertSame(['alpha widget', 'beta widget'], array_column($summary->topProbableCauses, 'affectedQuery'));
+    }
+
     public function test_deterministic_ordering_when_findings_have_equal_priority(): void
     {
         $summary = $this->summarizer()->summarize($this->product(), [
@@ -119,16 +195,16 @@ final class ReportSummarizerTest extends TestCase
         ], array_column($summary->topProbableCauses, 'code'));
     }
 
-    public function test_equal_code_findings_from_different_queries_sort_by_query_text(): void
+    public function test_equal_query_specific_findings_from_different_queries_sort_by_query_text(): void
     {
         $summary = $this->summarizer()->summarize($this->product(), [
             $this->queryVisibility(
                 query: $this->query(text: 'z query'),
-                findings: [$this->finding('schema.product_missing', 'medium')],
+                findings: [$this->finding('product.not_found_in_results', 'medium')],
             ),
             $this->queryVisibility(
                 query: $this->query(text: 'a query'),
-                findings: [$this->finding('schema.product_missing', 'medium')],
+                findings: [$this->finding('product.not_found_in_results', 'medium')],
             ),
         ]);
 
@@ -147,7 +223,6 @@ final class ReportSummarizerTest extends TestCase
         self::assertSame('first', $summary->evidenceReferences[0]['evidence']['sequence']);
         self::assertSame('second', $summary->evidenceReferences[1]['evidence']['sequence']);
     }
-
 
     public function test_summary_includes_top_recommended_actions(): void
     {

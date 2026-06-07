@@ -38,7 +38,8 @@ final readonly class ReportSummarizer
         $overallStatus = $this->overallStatus($visibleCount, $notVisibleCount, $uncertainCount);
         $overallPriority = $this->overallPriority($product, $queryVisibilities, $rankedFindings, $overallStatus);
         $highestPriorityAffectedQuery = $this->highestPriorityAffectedQuery($product, $queryVisibilities, $rankedFindings);
-        $topFindings = array_slice($rankedFindings, 0, 5);
+        $summaryFindings = $this->summaryFindings($rankedFindings);
+        $topFindings = array_slice($summaryFindings, 0, 5);
 
         return new ReportSummary(
             overallStatus: $overallStatus,
@@ -106,6 +107,95 @@ final readonly class ReportSummarizer
         });
 
         return $ranked;
+    }
+
+    /**
+     * @param array<int, array{finding: Finding, queryVisibility: QueryVisibility, priority: array, index: int}> $rankedFindings
+     * @return array<int, array{finding: Finding, queryVisibility: QueryVisibility, priority: array, index: int, affectedQueries: array<int, string>}>
+     */
+    private function summaryFindings(array $rankedFindings): array
+    {
+        $summaryFindings = [];
+        $indexesByKey = [];
+
+        foreach ($rankedFindings as $rankedFinding) {
+            $key = $this->summaryFindingKey($rankedFinding);
+            $affectedQuery = $rankedFinding['queryVisibility']->query->text;
+
+            if (!array_key_exists($key, $indexesByKey)) {
+                $rankedFinding['affectedQueries'] = [$affectedQuery];
+                $indexesByKey[$key] = count($summaryFindings);
+                $summaryFindings[] = $rankedFinding;
+
+                continue;
+            }
+
+            $summaryIndex = $indexesByKey[$key];
+            if (!in_array($affectedQuery, $summaryFindings[$summaryIndex]['affectedQueries'], true)) {
+                $summaryFindings[$summaryIndex]['affectedQueries'][] = $affectedQuery;
+                sort($summaryFindings[$summaryIndex]['affectedQueries']);
+            }
+        }
+
+        return $summaryFindings;
+    }
+
+    /**
+     * @param array{finding: Finding, queryVisibility: QueryVisibility, priority: array, index: int} $rankedFinding
+     */
+    private function summaryFindingKey(array $rankedFinding): string
+    {
+        $finding = $rankedFinding['finding'];
+        $keyParts = [$finding->code];
+
+        if ($this->isQuerySpecificFinding($finding->code)) {
+            $keyParts[] = $rankedFinding['queryVisibility']->query->text;
+        }
+
+        $keyParts[] = $this->stableEvidenceHash($finding->evidence, $this->isQuerySpecificFinding($finding->code));
+
+        return implode("\n", $keyParts);
+    }
+
+    private function isQuerySpecificFinding(string $code): bool
+    {
+        return in_array($code, [
+            'product.not_found_in_results',
+            'product.visibility_uncertain',
+            'product.visible_in_results',
+            'query.expected_visibility_missing',
+        ], true);
+    }
+
+    private function stableEvidenceHash(array $evidence, bool $keepQueryEvidence): string
+    {
+        if (!$keepQueryEvidence) {
+            unset($evidence['query'], $evidence['resultSet'], $evidence['urlMatch']);
+        }
+
+        return json_encode($this->stableValue($evidence), JSON_THROW_ON_ERROR);
+    }
+
+    private function stableValue(mixed $value): mixed
+    {
+        if (!is_array($value)) {
+            return $value;
+        }
+
+        if (!$this->isList($value)) {
+            ksort($value);
+        }
+
+        foreach ($value as $key => $nestedValue) {
+            $value[$key] = $this->stableValue($nestedValue);
+        }
+
+        return $value;
+    }
+
+    private function isList(array $value): bool
+    {
+        return array_keys($value) === range(0, count($value) - 1);
     }
 
     /**
@@ -230,6 +320,7 @@ final readonly class ReportSummarizer
                 'message' => $finding->message,
                 'affectedQuery' => $rankedFinding['queryVisibility']->query->text,
                 'severity' => $finding->severity,
+                'affectedQueries' => $rankedFinding['affectedQueries'] ?? [$rankedFinding['queryVisibility']->query->text],
             ];
         }
 
@@ -260,6 +351,7 @@ final readonly class ReportSummarizer
                 'category' => $rankedFinding['priority']['category'],
                 'action' => $action,
                 'affectedQuery' => $rankedFinding['queryVisibility']->query->text,
+                'affectedQueries' => $rankedFinding['affectedQueries'] ?? [$rankedFinding['queryVisibility']->query->text],
             ];
         }
 
@@ -291,6 +383,7 @@ final readonly class ReportSummarizer
                 'affectedQuery' => $rankedFinding['queryVisibility']->query->text,
                 'severity' => $finding->severity,
                 'evidence' => $finding->evidence,
+                'affectedQueries' => $rankedFinding['affectedQueries'] ?? [$rankedFinding['queryVisibility']->query->text],
             ];
         }
 
