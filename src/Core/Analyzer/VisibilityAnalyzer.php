@@ -19,7 +19,7 @@ use VisibilityDetector\Core\Page\ParsedPage;
 use VisibilityDetector\Core\Product\ProductSubject;
 use VisibilityDetector\Core\Report\Finding;
 use VisibilityDetector\Core\Report\QueryVisibility;
-use VisibilityDetector\Core\Report\ReportSummary;
+use VisibilityDetector\Core\Report\ReportSummarizer;
 use VisibilityDetector\Core\Report\VisibilityReport;
 use VisibilityDetector\Core\Search\SearchProvider;
 use VisibilityDetector\Core\Search\SearchQuery;
@@ -39,6 +39,7 @@ final readonly class VisibilityAnalyzer
         private CanonicalDetector $canonicalDetector = new CanonicalDetector(),
         private StructuredDataDetector $structuredDataDetector = new StructuredDataDetector(),
         private ContentAlignmentDetector $contentAlignmentDetector = new ContentAlignmentDetector(),
+        private ReportSummarizer $reportSummarizer = new ReportSummarizer(),
     ) {
     }
 
@@ -157,7 +158,7 @@ final readonly class VisibilityAnalyzer
             pageSnapshot: $pageSnapshot,
             parsedPage: $parsedPage,
             warnings: array_values(array_unique($reportWarnings)),
-            summary: $this->summary($queryVisibilities),
+            summary: $this->reportSummarizer->summarize($product, $queryVisibilities),
         );
     }
 
@@ -257,57 +258,4 @@ final readonly class VisibilityAnalyzer
         );
     }
 
-    /**
-     * @param array<int, QueryVisibility> $queryVisibilities
-     */
-    private function summary(array $queryVisibilities): ReportSummary
-    {
-        $totalQueries = count($queryVisibilities);
-        $visibleCount = $this->countStatus($queryVisibilities, 'visible');
-        $notVisibleCount = $this->countStatus($queryVisibilities, 'not_visible');
-        $uncertainCount = $this->countStatus($queryVisibilities, 'uncertain');
-        $highSeverityFindingCount = 0;
-
-        foreach ($queryVisibilities as $queryVisibility) {
-            foreach ($queryVisibility->findings as $finding) {
-                if (in_array($finding->severity, ['critical', 'high'], true)) {
-                    ++$highSeverityFindingCount;
-                }
-            }
-        }
-
-        $overallStatus = 'visible';
-        if ($uncertainCount > 0) {
-            $overallStatus = 'uncertain';
-        } elseif ($notVisibleCount > 0) {
-            $overallStatus = 'not_visible';
-        }
-
-        return new ReportSummary(
-            overallStatus: $overallStatus,
-            overallPriority: $highSeverityFindingCount > 0 ? 'high' : 'low',
-            message: 'Analyzed ' . $totalQueries . ' supplied search query' . ($totalQueries === 1 ? '.' : ' queries.'),
-            totalQueries: $totalQueries,
-            visibleCount: $visibleCount,
-            notVisibleCount: $notVisibleCount,
-            uncertainCount: $uncertainCount,
-            highSeverityFindingCount: $highSeverityFindingCount,
-        );
-    }
-
-    /**
-     * @param array<int, QueryVisibility> $queryVisibilities
-     */
-    private function countStatus(array $queryVisibilities, string $status): int
-    {
-        $count = 0;
-
-        foreach ($queryVisibilities as $queryVisibility) {
-            if ($queryVisibility->status === $status) {
-                ++$count;
-            }
-        }
-
-        return $count;
-    }
 }
