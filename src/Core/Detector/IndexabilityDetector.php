@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace VisibilityDetector\Core\Detector;
 
 use DateTimeImmutable;
+use DateTimeZone;
 use VisibilityDetector\Core\Page\PageSnapshot;
 use VisibilityDetector\Core\Page\ParsedPage;
 use VisibilityDetector\Core\Report\Finding;
@@ -19,7 +20,7 @@ final readonly class IndexabilityDetector implements Detector
     public function __construct(?UrlNormalizer $normalizer = null, ?DateTimeImmutable $now = null)
     {
         $this->normalizer = $normalizer ?? new UrlNormalizer();
-        $this->now = $now ?? new DateTimeImmutable('now');
+        $this->now = ($now ?? new DateTimeImmutable('now'))->setTimezone(new DateTimeZone('UTC'));
     }
 
     /**
@@ -309,11 +310,11 @@ final readonly class IndexabilityDetector implements Detector
             return null;
         }
 
-        $parsedDate = DateTimeImmutable::createFromFormat(DATE_RFC7231, $dateText);
+        $parsedDate = DateTimeImmutable::createFromFormat(DATE_RFC7231, $dateText, new DateTimeZone('UTC'));
         $parseErrors = DateTimeImmutable::getLastErrors();
 
         if ($parsedDate instanceof DateTimeImmutable && ($parseErrors === false || ($parseErrors['warning_count'] === 0 && $parseErrors['error_count'] === 0))) {
-            return $parsedDate;
+            return $parsedDate->setTimezone(new DateTimeZone('UTC'));
         }
 
         return null;
@@ -335,7 +336,7 @@ final readonly class IndexabilityDetector implements Detector
             $evidence['parsedDate'] = $parsedDate->format(DATE_ATOM);
         }
 
-        if (str_starts_with(strtolower($this->directiveName($directive)), 'unavailable_after')) {
+        if ($this->unavailableAfterDateText($directive) !== null) {
             $evidence['referenceDate'] = $this->now->format(DATE_ATOM);
         }
 

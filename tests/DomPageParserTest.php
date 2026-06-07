@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 use VisibilityDetector\Core\Detector\DetectionContext;
 use VisibilityDetector\Core\Detector\IndexabilityDetector;
@@ -128,7 +127,7 @@ final class DomPageParserTest extends TestCase
     public function test_indexability_detector_detects_parsed_bot_scoped_unavailable_after(): void
     {
         $parsed = $this->parser->parse($this->snapshot('<html><head><meta name="robots" content="googlebot: unavailable_after: Wed, 21 Oct 2015 07:28:00 GMT"></head><body>Widget</body></html>'));
-        $findings = (new IndexabilityDetector(now: new DateTimeImmutable('2020-01-01 00:00:00 UTC')))->detect($this->context($parsed));
+        $findings = (new IndexabilityDetector(now: new \DateTimeImmutable('2020-01-01 00:00:00 UTC')))->detect($this->context($parsed));
 
         self::assertContains('page.unavailable_after_expired', array_map(static fn ($finding): string => $finding->code, $findings));
     }

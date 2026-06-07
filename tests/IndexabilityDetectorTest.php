@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 use VisibilityDetector\Core\Detector\DetectionContext;
 use VisibilityDetector\Core\Detector\IndexabilityDetector;
@@ -238,7 +237,7 @@ final class IndexabilityDetectorTest extends TestCase
 
     private function detector(): IndexabilityDetector
     {
-        return new IndexabilityDetector(now: new DateTimeImmutable('2020-01-01 00:00:00 UTC'));
+        return new IndexabilityDetector(now: new \DateTimeImmutable('2020-01-01 00:00:00 UTC'));
     }
 
     /**
