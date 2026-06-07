@@ -119,6 +119,36 @@ final class ReportSummarizerTest extends TestCase
         ], array_column($summary->topProbableCauses, 'code'));
     }
 
+    public function test_equal_code_findings_from_different_queries_sort_by_query_text(): void
+    {
+        $summary = $this->summarizer()->summarize($this->product(), [
+            $this->queryVisibility(
+                query: $this->query(text: 'z query'),
+                findings: [$this->finding('schema.product_missing', 'medium')],
+            ),
+            $this->queryVisibility(
+                query: $this->query(text: 'a query'),
+                findings: [$this->finding('schema.product_missing', 'medium')],
+            ),
+        ]);
+
+        self::assertSame(['a query', 'z query'], array_column($summary->topProbableCauses, 'affectedQuery'));
+    }
+
+    public function test_fully_equal_priority_code_and_query_falls_back_to_original_index(): void
+    {
+        $summary = $this->summarizer()->summarize($this->product(), [
+            $this->queryVisibility(findings: [
+                $this->finding('schema.offer_missing', 'medium', evidence: ['sequence' => 'first']),
+                $this->finding('schema.offer_missing', 'medium', evidence: ['sequence' => 'second']),
+            ]),
+        ]);
+
+        self::assertSame('first', $summary->evidenceReferences[0]['evidence']['sequence']);
+        self::assertSame('second', $summary->evidenceReferences[1]['evidence']['sequence']);
+    }
+
+
     public function test_summary_includes_top_recommended_actions(): void
     {
         $summary = $this->summarizer()->summarize($this->product(), [

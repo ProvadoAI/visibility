@@ -78,8 +78,31 @@ final readonly class ReportSummarizer
         }
 
         usort($ranked, static function (array $left, array $right): int {
-            return [$right['priority']['score'], $left['priority']['categoryRank'], $left['priority']['blockerRank'], $right['priority']['severityRank'], $left['finding']->code, $left['queryVisibility']->query->text, $left['index']]
-                <=> [$left['priority']['score'], $right['priority']['categoryRank'], $right['priority']['blockerRank'], $left['priority']['severityRank'], $right['finding']->code, $right['queryVisibility']->query->text, $right['index']];
+            if ($left['priority']['score'] !== $right['priority']['score']) {
+                return $right['priority']['score'] <=> $left['priority']['score'];
+            }
+
+            if ($left['priority']['categoryRank'] !== $right['priority']['categoryRank']) {
+                return $left['priority']['categoryRank'] <=> $right['priority']['categoryRank'];
+            }
+
+            if ($left['priority']['blockerRank'] !== $right['priority']['blockerRank']) {
+                return $left['priority']['blockerRank'] <=> $right['priority']['blockerRank'];
+            }
+
+            if ($left['priority']['severityRank'] !== $right['priority']['severityRank']) {
+                return $right['priority']['severityRank'] <=> $left['priority']['severityRank'];
+            }
+
+            if ($left['finding']->code !== $right['finding']->code) {
+                return $left['finding']->code <=> $right['finding']->code;
+            }
+
+            if ($left['queryVisibility']->query->text !== $right['queryVisibility']->query->text) {
+                return $left['queryVisibility']->query->text <=> $right['queryVisibility']->query->text;
+            }
+
+            return $left['index'] <=> $right['index'];
         });
 
         return $ranked;
