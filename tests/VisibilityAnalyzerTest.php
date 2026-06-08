@@ -31,6 +31,7 @@ final class VisibilityAnalyzerTest extends TestCase
         ])->analyze($this->product(), [$query]);
 
         self::assertSame('visible', $report->queryVisibilities[0]->status);
+        self::assertSame('healthy', $report->queryVisibilities[0]->visibilityHealth);
         self::assertSame('product.visible_in_results', $report->queryVisibilities[0]->findings[0]->code);
         self::assertSame(1, $report->summary?->visibleCount);
     }
@@ -43,6 +44,7 @@ final class VisibilityAnalyzerTest extends TestCase
         ])->analyze($this->product(), [$query]);
 
         self::assertSame('not_visible', $report->queryVisibilities[0]->status);
+        self::assertSame('unknown', $report->queryVisibilities[0]->visibilityHealth);
         self::assertSame('product.not_found_in_results', $report->queryVisibilities[0]->findings[0]->code);
     }
 
@@ -58,6 +60,7 @@ final class VisibilityAnalyzerTest extends TestCase
         ])->analyze($this->product(), [$query]);
 
         self::assertSame('uncertain', $report->queryVisibilities[0]->status);
+        self::assertSame('unknown', $report->queryVisibilities[0]->visibilityHealth);
         self::assertContains('provider returned partial results', $report->queryVisibilities[0]->warnings);
         self::assertContains('provider returned partial results', $report->warnings);
     }
@@ -151,6 +154,7 @@ final class VisibilityAnalyzerTest extends TestCase
         )->analyze($this->product(), [$query]);
 
         self::assertContains('page.noindex_meta', $this->findingCodes($report->queryVisibilities[0]));
+        self::assertSame('blocked', $report->queryVisibilities[0]->visibilityHealth);
     }
 
     public function test_analyzer_includes_metadata_findings_from_parsed_page_evidence(): void
@@ -165,6 +169,7 @@ final class VisibilityAnalyzerTest extends TestCase
         self::assertContains('page.title_missing', $this->findingCodes($report->queryVisibilities[0]));
         self::assertContains('schema.product_missing', $this->findingCodes($report->queryVisibilities[0]));
         self::assertNotContains('page.product_schema_missing', $this->findingCodes($report->queryVisibilities[0]));
+        self::assertSame('at_risk', $report->queryVisibilities[0]->visibilityHealth);
 
         $finding = $this->findingByCode($report->queryVisibilities[0], 'schema.product_missing');
         self::assertSame('page.product_schema_missing', $finding->evidence['suppressedDuplicateFindings'][0]['code']);
@@ -224,6 +229,7 @@ final class VisibilityAnalyzerTest extends TestCase
 
         self::assertContains('canonical.points_to_other_url', $this->findingCodes($report->queryVisibilities[0]));
         self::assertNotContains('page.canonical_mismatch', $this->findingCodes($report->queryVisibilities[0]));
+        self::assertSame('at_risk', $report->queryVisibilities[0]->visibilityHealth);
 
         $finding = $this->findingByCode($report->queryVisibilities[0], 'canonical.points_to_other_url');
         self::assertSame('page.canonical_mismatch', $finding->evidence['suppressedDuplicateFindings'][0]['code']);

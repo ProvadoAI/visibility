@@ -36,6 +36,7 @@ final class ExampleFixturesTest extends TestCase
         self::assertSame('https://example.test/products/aurora-trail-shoe', $payload['product']['expectedUrl']);
         self::assertTrue($payload['queryVisibilities'][0]['query']['expectedVisibility']);
         self::assertSame('static-fixture', $payload['queryVisibilities'][0]['provider']);
+        self::assertSame('blocked', $payload['queryVisibilities'][0]['visibilityHealth']);
         self::assertContains('page.noindex_meta', array_column($payload['queryVisibilities'][0]['findings'], 'code'));
         self::assertContains('canonical.points_to_other_url', array_column($payload['queryVisibilities'][0]['findings'], 'code'));
     }

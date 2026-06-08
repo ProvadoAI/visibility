@@ -22,7 +22,28 @@ final class ReportSummarizerTest extends TestCase
         self::assertSame('visible', $summary->overallStatus);
         self::assertSame('low', $summary->overallPriority);
         self::assertNull($summary->highestPriorityAffectedQuery);
+        self::assertStringContainsString('visible in supplied results and technically healthy', $summary->message);
         self::assertSame('product.visible_in_results', $summary->topRecommendedActions[0]['code']);
+    }
+
+    public function test_visible_at_risk_summary_distinguishes_health_from_visibility(): void
+    {
+        $summary = $this->summarizer()->summarize($this->product(), [
+            $this->queryVisibility(findings: [$this->finding('canonical.points_to_other_url', 'high')]),
+        ]);
+
+        self::assertSame('visible', $summary->overallStatus);
+        self::assertStringContainsString('visible in supplied results but technically at risk', $summary->message);
+    }
+
+    public function test_visible_blocked_summary_distinguishes_health_from_visibility(): void
+    {
+        $summary = $this->summarizer()->summarize($this->product(), [
+            $this->queryVisibility(findings: [$this->finding('page.noindex_meta', 'high')]),
+        ]);
+
+        self::assertSame('visible', $summary->overallStatus);
+        self::assertStringContainsString('visible in supplied results but technically blocked', $summary->message);
     }
 
     public function test_not_visible_expected_query_increases_priority(): void
@@ -37,6 +58,36 @@ final class ReportSummarizerTest extends TestCase
         self::assertSame('not_visible', $summary->overallStatus);
         self::assertSame('high', $summary->overallPriority);
         self::assertSame('buy widget', $summary->highestPriorityAffectedQuery);
+        self::assertStringContainsString('not visible in supplied results', $summary->message);
+    }
+
+    public function test_not_visible_with_health_risk_is_not_summarized_as_merely_at_risk(): void
+    {
+        $summary = $this->summarizer()->summarize($this->product(), [
+            $this->queryVisibility(
+                query: $this->query(text: 'buy widget', expectedVisibility: true, priority: 'high'),
+                status: 'not_visible',
+                findings: [$this->finding('canonical.points_to_other_url', 'high')],
+            ),
+        ]);
+
+        self::assertSame('not_visible', $summary->overallStatus);
+        self::assertStringContainsString('not visible in supplied results', $summary->message);
+        self::assertStringNotContainsString('technically at risk', $summary->message);
+    }
+
+    public function test_uncertain_summary_distinguishes_incomplete_evidence(): void
+    {
+        $summary = $this->summarizer()->summarize($this->product(), [
+            $this->queryVisibility(
+                query: $this->query(text: 'buy widget'),
+                status: 'uncertain',
+                findings: [$this->finding('product.visibility_uncertain', 'medium')],
+            ),
+        ]);
+
+        self::assertSame('uncertain', $summary->overallStatus);
+        self::assertStringContainsString('uncertain in supplied results', $summary->message);
     }
 
     public function test_critical_product_commercial_priority_increases_overall_priority(): void

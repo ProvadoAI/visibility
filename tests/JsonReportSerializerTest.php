@@ -108,6 +108,7 @@ final class JsonReportSerializerTest extends TestCase
         self::assertSame('critical', $queryVisibility['query']['priority']);
         self::assertSame('launch query', $queryVisibility['query']['reason']);
         self::assertSame('visible', $queryVisibility['status']);
+        self::assertArrayHasKey('visibilityHealth', $queryVisibility);
         self::assertSame('content.description_missing', $queryVisibility['findings'][0]['code']);
         self::assertSame('Parsed meta description is empty.', $queryVisibility['findings'][0]['evidence']['parsedPage']);
     }
@@ -138,6 +139,13 @@ final class JsonReportSerializerTest extends TestCase
 
         self::assertSame(['report warning'], $payload['warnings']);
         self::assertSame(['query warning'], $payload['queryVisibilities'][0]['warnings']);
+    }
+
+    public function test_json_contains_query_visibility_health(): void
+    {
+        $payload = $this->serializedPayload();
+
+        self::assertSame('at_risk', $payload['queryVisibilities'][0]['visibilityHealth']);
     }
 
     public function test_json_contains_summary(): void

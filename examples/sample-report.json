@@ -34,6 +34,7 @@
             "locale": "en_US",
             "device": "desktop",
             "status": "not_visible",
+            "visibilityHealth": "blocked",
             "urlMatch": {
                 "matched": false,
                 "matchType": "none",
@@ -196,7 +197,7 @@
     "summary": {
         "overallStatus": "not_visible",
         "overallPriority": "critical",
-        "message": "Critical priority: product is not visible across 1 supplied query; top issue is page.noindex_meta for \"acme waterproof trail running shoes\".",
+        "message": "Critical priority: product is not visible in supplied results across 1 supplied query; top issue is page.noindex_meta for \"acme waterproof trail running shoes\".",
         "highestPriorityAffectedQuery": "acme waterproof trail running shoes",
         "topProbableCauses": [
             {
