@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.1.1 - Example scenario fixtures
+
+v0.1.1 improves the local example workflow used to manually validate deterministic visibility scenarios without editing PHP files between runs.
+
+### Added
+
+- Separate runnable example scripts for not-visible, exact-match, normalized-match, and acceptable-variant scenarios.
+- Reusable `examples/run-analysis.php` helper for shared local fixture analysis setup.
+- `examples/fixtures/search-results-visible-exact.json` for exact URL match validation.
+- `examples/fixtures/search-results-visible-normalized.json` for tracking-parameter normalization validation.
+- `examples/fixtures/search-results-acceptable-variant.json` for acceptable URL variant validation.
+- `examples/visible-exact-analysis.php`, `examples/visible-normalized-analysis.php`, and `examples/acceptable-variant-analysis.php` scenario scripts.
+
+### Fixed
+
+- Added dedicated page snapshots for tracked and acceptable-variant URLs in fixture-based examples.
+- Updated example fixture tests to validate the shared runner instead of only the basic script.
+- Removed the need to manually edit `examples/basic-analysis.php` when switching between example search fixtures.
+
+### Validation
+
+- Manual local validation covered not-visible, exact-match, normalized-match, and acceptable-variant scenarios.
+- Runtime validation is owner-managed with `composer test`.
+
 ## v0.1.0 - Initial deterministic visibility engine
 
 v0.1.0 introduces a deterministic PHP core for analyzing one ecommerce product at a time using caller-supplied search results and product-page evidence.
