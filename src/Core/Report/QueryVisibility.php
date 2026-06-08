@@ -135,8 +135,6 @@ final readonly class QueryVisibility
             'page.fetch_failed',
             'page.fetch_skipped',
             'page.parse_skipped',
-            'analyzer.page_fetch_skipped',
-            'analyzer.page_parse_skipped',
             'page.http_status_not_ok',
             'page.http_error',
             'page.non_html_content',

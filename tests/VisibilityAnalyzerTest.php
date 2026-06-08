@@ -267,6 +267,7 @@ final class VisibilityAnalyzerTest extends TestCase
         )->analyze($this->product(), [$query]);
 
         self::assertSame('visible', $report->queryVisibilities[0]->status);
+        self::assertSame('healthy', $report->queryVisibilities[0]->visibilityHealth);
         self::assertContains('analyzer.page_fetch_skipped', $this->findingCodes($report->queryVisibilities[0]));
     }
 
@@ -279,6 +280,7 @@ final class VisibilityAnalyzerTest extends TestCase
             pageParser: null,
         )->analyze($this->product(), [$query]);
 
+        self::assertSame('healthy', $report->queryVisibilities[0]->visibilityHealth);
         self::assertContains('analyzer.page_parse_skipped', $this->findingCodes($report->queryVisibilities[0]));
     }
 
