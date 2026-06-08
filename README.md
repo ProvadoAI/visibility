@@ -68,7 +68,7 @@ The main output sections are:
 - `summary.overallPriority`: the business priority after combining query priority, product commercial context, and finding severity.
 - `summary.topProbableCauses`: the most important likely reasons the product is not visible.
 - `summary.topRecommendedActions`: prioritized next actions derived from the findings.
-- `evidenceReferences`: pointers to report fields that support the summary and recommended actions.
+- `evidenceReferences`: structured evidence excerpts copied from the top summary findings, including code, category, affected query, severity, and supporting evidence.
 
 ## Documents
 

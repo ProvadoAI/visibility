@@ -6,6 +6,15 @@ use PHPUnit\Framework\TestCase;
 
 final class ExampleFixturesTest extends TestCase
 {
+    private const KNOWN_SUMMARY_CATEGORIES = [
+        'availability_blocker',
+        'indexability_blocker',
+        'canonical_blocker',
+        'visibility_quality',
+        'content_quality',
+        'diagnostic',
+    ];
+
     public function test_sample_report_is_valid_json_with_required_demo_sections(): void
     {
         $payload = $this->sampleReportPayload();
@@ -29,6 +38,35 @@ final class ExampleFixturesTest extends TestCase
         self::assertSame('static-fixture', $payload['queryVisibilities'][0]['provider']);
         self::assertContains('page.noindex_meta', array_column($payload['queryVisibilities'][0]['findings'], 'code'));
         self::assertContains('canonical.points_to_other_url', array_column($payload['queryVisibilities'][0]['findings'], 'code'));
+    }
+
+    public function test_sample_report_uses_current_summary_category_taxonomy(): void
+    {
+        $payload = $this->sampleReportPayload();
+        $categories = $this->summaryCategories($payload);
+
+        self::assertNotContains('structured_data_gap', $categories);
+
+        foreach ($categories as $category) {
+            self::assertContains($category, self::KNOWN_SUMMARY_CATEGORIES);
+        }
+    }
+
+    public function test_schema_product_missing_uses_visibility_quality_in_summary(): void
+    {
+        $payload = $this->sampleReportPayload();
+        $sawSchemaProductMissing = false;
+
+        foreach ($this->summaryEntries($payload) as $entry) {
+            if (($entry['code'] ?? null) !== 'schema.product_missing') {
+                continue;
+            }
+
+            $sawSchemaProductMissing = true;
+            self::assertSame('visibility_quality', $entry['category'] ?? null);
+        }
+
+        self::assertTrue($sawSchemaProductMissing);
     }
 
     public function test_example_script_uses_static_fixtures_instead_of_external_services(): void
@@ -59,5 +97,54 @@ final class ExampleFixturesTest extends TestCase
         self::assertIsArray($payload);
 
         return $payload;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<int, string>
+     */
+    private function summaryCategories(array $payload): array
+    {
+        return array_values(array_filter(
+            array_map(
+                static fn (array $entry): ?string => isset($entry['category']) && is_string($entry['category']) ? $entry['category'] : null,
+                $this->summaryEntries($payload),
+            ),
+            static fn (?string $category): bool => $category !== null,
+        ));
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<int, array<string, mixed>>
+     */
+    private function summaryEntries(array $payload): array
+    {
+        $summary = $payload['summary'] ?? [];
+
+        self::assertIsArray($summary);
+
+        return array_merge(
+            $this->summaryEntryList($summary, 'topProbableCauses'),
+            $this->summaryEntryList($summary, 'topRecommendedActions'),
+            $this->summaryEntryList($summary, 'evidenceReferences'),
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $summary
+     * @return array<int, array<string, mixed>>
+     */
+    private function summaryEntryList(array $summary, string $field): array
+    {
+        $entries = $summary[$field] ?? [];
+
+        self::assertIsArray($entries);
+
+        foreach ($entries as $entry) {
+            self::assertIsArray($entry);
+        }
+
+        return $entries;
     }
 }
