@@ -48,21 +48,24 @@ $searchResultSet = SearchResultSet::fromArray(json_decode(
     JSON_THROW_ON_ERROR,
 ));
 
+$productPageSnapshot = new PageSnapshot(
+    requestedUrl: $product->expectedUrl,
+    finalUrl: $product->expectedUrl,
+    statusCode: 200,
+    headers: ['content-type' => ['text/html; charset=utf-8']],
+    body: file_get_contents(__DIR__ . '/fixtures/product-page.html'),
+    contentType: 'text/html; charset=utf-8',
+    durationMs: 3,
+    warnings: ['Fixture HTML intentionally includes noindex and a canonical URL pointing away from the product.'],
+);
+
 $analyzer = new VisibilityAnalyzer(
     searchProvider: new StaticSearchProvider([$searchResultSet]),
     urlMatcher: new DefaultUrlMatcher(),
     visibilityResultDetector: new VisibilityResultDetector(),
     pageFetcher: new FixturePageFetcher([
-        $product->expectedUrl => new PageSnapshot(
-            requestedUrl: $product->expectedUrl,
-            finalUrl: $product->expectedUrl,
-            statusCode: 200,
-            headers: ['content-type' => ['text/html; charset=utf-8']],
-            body: file_get_contents(__DIR__ . '/fixtures/product-page.html'),
-            contentType: 'text/html; charset=utf-8',
-            durationMs: 3,
-            warnings: ['Fixture HTML intentionally includes noindex and a canonical URL pointing away from the product.'],
-        ),
+        $product->expectedUrl => $productPageSnapshot,
+        'https://example.test/products/aurora-trail-shoe?utm_source=google&utm_campaign=test' => $productPageSnapshot,
     ]),
     pageParser: new DomPageParser(),
 );
