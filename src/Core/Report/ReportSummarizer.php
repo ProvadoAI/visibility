@@ -44,7 +44,7 @@ final readonly class ReportSummarizer
         return new ReportSummary(
             overallStatus: $overallStatus,
             overallPriority: $overallPriority,
-            message: $this->message($overallStatus, $overallPriority, $highestPriorityAffectedQuery, $totalQueries, $topFindings),
+            message: $this->message($overallStatus, $overallPriority, $highestPriorityAffectedQuery, $totalQueries, $topFindings, $queryVisibilities),
             highestPriorityAffectedQuery: $highestPriorityAffectedQuery,
             topProbableCauses: $this->topProbableCauses($topFindings),
             topRecommendedActions: $this->topRecommendedActions($topFindings, $overallStatus),
@@ -425,16 +425,19 @@ final readonly class ReportSummarizer
 
     /**
      * @param array<int, array{finding: Finding, queryVisibility: QueryVisibility, priority: array, index: int}> $topFindings
+     * @param array<int, QueryVisibility> $queryVisibilities
      */
-    private function message(string $overallStatus, string $overallPriority, ?string $highestPriorityAffectedQuery, int $totalQueries, array $topFindings): string
+    private function message(string $overallStatus, string $overallPriority, ?string $highestPriorityAffectedQuery, int $totalQueries, array $topFindings, array $queryVisibilities): string
     {
+        $statusDescription = $this->statusDescription($overallStatus, $queryVisibilities);
+
         if ($topFindings !== []) {
             $top = $topFindings[0];
 
             return sprintf(
                 '%s priority: product is %s across %d supplied %s; top issue is %s for "%s".',
                 ucfirst($overallPriority),
-                str_replace('_', ' ', $overallStatus),
+                $statusDescription,
                 $totalQueries,
                 $totalQueries === 1 ? 'query' : 'queries',
                 $top['finding']->code,
@@ -443,10 +446,48 @@ final readonly class ReportSummarizer
         }
 
         if ($highestPriorityAffectedQuery !== null) {
-            return sprintf('%s priority: product is %s for "%s".', ucfirst($overallPriority), str_replace('_', ' ', $overallStatus), $highestPriorityAffectedQuery);
+            return sprintf('%s priority: product is %s for "%s".', ucfirst($overallPriority), $statusDescription, $highestPriorityAffectedQuery);
         }
 
-        return sprintf('%s priority: product is %s across %d supplied %s.', ucfirst($overallPriority), str_replace('_', ' ', $overallStatus), $totalQueries, $totalQueries === 1 ? 'query' : 'queries');
+        return sprintf('%s priority: product is %s across %d supplied %s.', ucfirst($overallPriority), $statusDescription, $totalQueries, $totalQueries === 1 ? 'query' : 'queries');
+    }
+
+    /**
+     * @param array<int, QueryVisibility> $queryVisibilities
+     */
+    private function statusDescription(string $overallStatus, array $queryVisibilities): string
+    {
+        if ($overallStatus === 'visible') {
+            if ($this->hasVisibilityHealth($queryVisibilities, 'blocked')) {
+                return 'visible in supplied results but technically blocked';
+            }
+
+            if ($this->hasVisibilityHealth($queryVisibilities, 'at_risk')) {
+                return 'visible in supplied results but technically at risk';
+            }
+
+            return 'visible in supplied results and technically healthy';
+        }
+
+        if ($overallStatus === 'not_visible') {
+            return 'not visible in supplied results';
+        }
+
+        return 'uncertain in supplied results';
+    }
+
+    /**
+     * @param array<int, QueryVisibility> $queryVisibilities
+     */
+    private function hasVisibilityHealth(array $queryVisibilities, string $visibilityHealth): bool
+    {
+        foreach ($queryVisibilities as $queryVisibility) {
+            if ($queryVisibility->visibilityHealth === $visibilityHealth) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function defaultRecommendation(string $code): ?string

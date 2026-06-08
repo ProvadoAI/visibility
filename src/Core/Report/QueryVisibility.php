@@ -11,6 +11,8 @@ use VisibilityDetector\Core\Url\UrlMatch;
 
 final readonly class QueryVisibility
 {
+    public string $visibilityHealth;
+
     public function __construct(
         public SearchQuery $query,
         public string $status,
@@ -18,6 +20,7 @@ final readonly class QueryVisibility
         public ?SearchResult $matchedResult = null,
         public array $findings = [],
         public array $warnings = [],
+        ?string $visibilityHealth = null,
     ) {
         if (!in_array($status, ['visible', 'not_visible', 'uncertain'], true)) {
             throw new InvalidArgumentException('status is invalid.');
@@ -28,6 +31,12 @@ final readonly class QueryVisibility
                 throw new InvalidArgumentException('findings must contain only Finding objects.');
             }
         }
+
+        if ($visibilityHealth !== null && !in_array($visibilityHealth, ['healthy', 'at_risk', 'blocked', 'unknown'], true)) {
+            throw new InvalidArgumentException('visibilityHealth is invalid.');
+        }
+
+        $this->visibilityHealth = $visibilityHealth ?? self::visibilityHealthFor($status, $findings);
     }
 
     public static function fromArray(array $data): self
@@ -66,6 +75,7 @@ final readonly class QueryVisibility
                 $data['findings'] ?? [],
             ),
             warnings: $data['warnings'] ?? [],
+            visibilityHealth: isset($data['visibilityHealth']) && is_string($data['visibilityHealth']) ? $data['visibilityHealth'] : null,
         );
     }
 
@@ -77,6 +87,7 @@ final readonly class QueryVisibility
             'locale' => $this->query->locale,
             'device' => $this->query->device,
             'status' => $this->status,
+            'visibilityHealth' => $this->visibilityHealth,
             'urlMatch' => $this->urlMatch->toArray(),
             'matchedResult' => $this->matchedResult?->toArray(),
             'findings' => array_map(
@@ -85,6 +96,69 @@ final readonly class QueryVisibility
             ),
             'warnings' => $this->warnings,
         ];
+    }
+
+    /**
+     * @param array<int, Finding> $findings
+     */
+    private static function visibilityHealthFor(string $status, array $findings): string
+    {
+        $findingCodes = array_map(static fn (Finding $finding): string => $finding->code, $findings);
+
+        foreach ($findingCodes as $code) {
+            if (self::isBlockingFinding($code)) {
+                return 'blocked';
+            }
+        }
+
+        foreach ($findingCodes as $code) {
+            if (self::isAtRiskFinding($code)) {
+                return 'at_risk';
+            }
+        }
+
+        if ($status === 'visible') {
+            return 'healthy';
+        }
+
+        return 'unknown';
+    }
+
+    private static function isBlockingFinding(string $code): bool
+    {
+        return in_array($code, [
+            'page.noindex_meta',
+            'page.noindex_header',
+            'page.noindex_x_robots',
+            'page.robots_none',
+            'page.unavailable_after_expired',
+            'page.fetch_failed',
+            'page.fetch_skipped',
+            'page.parse_skipped',
+            'analyzer.page_fetch_skipped',
+            'analyzer.page_parse_skipped',
+            'page.http_status_not_ok',
+            'page.http_error',
+            'page.non_html_content',
+            'page.non_html_response',
+        ], true);
+    }
+
+    private static function isAtRiskFinding(string $code): bool
+    {
+        return in_array($code, [
+            'canonical.points_to_other_url',
+            'canonical.points_to_homepage',
+            'schema.product_missing',
+            'page.product_schema_missing',
+            'schema.offer_missing',
+            'page.offer_schema_missing',
+            'content.description_missing',
+            'content.description_too_thin',
+            'content.title_missing_product_terms',
+            'content.h1_missing_product_terms',
+            'content.body_missing_product_terms',
+        ], true);
     }
 
     private static function requiredString(array $data, string $field): string

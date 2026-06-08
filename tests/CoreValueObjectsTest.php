@@ -205,6 +205,79 @@ final class CoreValueObjectsTest extends TestCase
         );
     }
 
+
+    public function test_query_visibility_health_is_healthy_for_visible_clean_findings(): void
+    {
+        $queryVisibility = $this->queryVisibility(status: 'visible', findings: [
+            $this->finding('product.visible_in_results', 'info'),
+        ]);
+
+        self::assertSame('visible', $queryVisibility->status);
+        self::assertSame('healthy', $queryVisibility->visibilityHealth);
+        self::assertSame('healthy', $queryVisibility->toArray()['visibilityHealth']);
+    }
+
+    public function test_query_visibility_health_is_at_risk_for_visible_canonical_mismatch(): void
+    {
+        $queryVisibility = $this->queryVisibility(status: 'visible', findings: [
+            $this->finding('product.visible_in_results', 'info'),
+            $this->finding('canonical.points_to_other_url', 'high'),
+        ]);
+
+        self::assertSame('visible', $queryVisibility->status);
+        self::assertSame('at_risk', $queryVisibility->visibilityHealth);
+    }
+
+    public function test_query_visibility_health_is_blocked_for_visible_noindex_meta(): void
+    {
+        $queryVisibility = $this->queryVisibility(status: 'visible', findings: [
+            $this->finding('product.visible_in_results', 'info'),
+            $this->finding('page.noindex_meta', 'high'),
+        ]);
+
+        self::assertSame('visible', $queryVisibility->status);
+        self::assertSame('blocked', $queryVisibility->visibilityHealth);
+    }
+
+    public function test_query_visibility_health_is_at_risk_for_missing_product_schema(): void
+    {
+        $queryVisibility = $this->queryVisibility(status: 'visible', findings: [
+            $this->finding('product.visible_in_results', 'info'),
+            $this->finding('schema.product_missing', 'high'),
+        ]);
+
+        self::assertSame('visible', $queryVisibility->status);
+        self::assertSame('at_risk', $queryVisibility->visibilityHealth);
+    }
+
+    public function test_query_visibility_health_is_unknown_for_uncertain_without_blocker(): void
+    {
+        $queryVisibility = $this->queryVisibility(status: 'uncertain', findings: [
+            $this->finding('product.visibility_uncertain', 'medium'),
+        ]);
+
+        self::assertSame('uncertain', $queryVisibility->status);
+        self::assertSame('unknown', $queryVisibility->visibilityHealth);
+    }
+
+    public function test_query_visibility_health_is_blocked_for_uncertain_with_blocker(): void
+    {
+        $queryVisibility = $this->queryVisibility(status: 'uncertain', findings: [
+            $this->finding('product.visibility_uncertain', 'medium'),
+            $this->finding('page.noindex_meta', 'high'),
+        ]);
+
+        self::assertSame('uncertain', $queryVisibility->status);
+        self::assertSame('blocked', $queryVisibility->visibilityHealth);
+    }
+
+    public function test_query_visibility_rejects_invalid_visibility_health(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->queryVisibility(status: 'visible', visibilityHealth: 'risky');
+    }
+
     public function test_visibility_report_serializes_nested_objects(): void
     {
         $query = new SearchQuery(
@@ -287,4 +360,35 @@ final class CoreValueObjectsTest extends TestCase
         self::assertSame('visible', $array['summary']['overallStatus']);
         self::assertSame('2026-06-06T12:00:00+00:00', $array['generatedAt']);
     }
+
+    /**
+     * @param array<int, Finding> $findings
+     */
+    private function queryVisibility(string $status, array $findings = [], ?string $visibilityHealth = null): QueryVisibility
+    {
+        return new QueryVisibility(
+            query: new SearchQuery(text: 'buy widget', provider: 'google'),
+            status: $status,
+            urlMatch: new UrlMatch(
+                matched: $status === 'visible',
+                matchType: $status === 'visible' ? 'exact' : 'none',
+                expectedUrl: 'https://merchant.test/products/widget',
+                matchedUrl: $status === 'visible' ? 'https://merchant.test/products/widget' : null,
+                matchedPosition: $status === 'visible' ? 1 : null,
+            ),
+            findings: $findings,
+            visibilityHealth: $visibilityHealth,
+        );
+    }
+
+    private function finding(string $code, string $severity): Finding
+    {
+        return new Finding(
+            code: $code,
+            severity: $severity,
+            confidence: 1.0,
+            message: 'Finding ' . $code,
+        );
+    }
+
 }

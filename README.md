@@ -8,7 +8,7 @@ v0.1 is limited to a core engine skeleton and deterministic analysis of caller-s
 
 ## v0.1 usage example
 
-v0.1 analyzes **one product at a time**. The package does not scrape Google, Bing, marketplaces, or any other external provider. Search results and product-page HTML are supplied by the caller, usually from in-memory objects or local fixtures. Given that deterministic evidence, the analyzer produces query visibility findings and a prioritized summary.
+v0.1 analyzes **one product at a time**. The package does not scrape Google, Bing, marketplaces, or any other external provider. Search results and product-page HTML are supplied by the caller, usually from in-memory objects or local fixtures. Given that deterministic evidence, the analyzer produces query visibility findings, deterministic visibility health, and a prioritized summary.
 
 The repository includes a local-only demo under [`examples/`](examples/):
 
@@ -62,7 +62,8 @@ The full example wires the supporting objects explicitly:
 
 The main output sections are:
 
-- `queryVisibilities`: one entry per supplied query, including the query context, visible/not-visible/uncertain status, URL match evidence, query-level findings, and warnings.
+- `queryVisibilities`: one entry per supplied query, including the query context, visible/not-visible/uncertain status, `visibilityHealth`, URL match evidence, query-level findings, and warnings.
+- `visibilityHealth`: query-level technical health derived only from deterministic findings. Values are `healthy`, `at_risk`, `blocked`, or `unknown`; this is separate from the visible/not-visible/uncertain result-set status.
 - `findings`: diagnostics attached to each query visibility. In the demo these include absence from supplied search results, `noindex`, canonical mismatch, and missing Product/Offer structured data.
 - `summary.overallStatus`: the rollup visibility status for the product across supplied queries.
 - `summary.overallPriority`: the business priority after combining query priority, product commercial context, and finding severity.
