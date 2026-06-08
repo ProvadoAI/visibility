@@ -69,17 +69,23 @@ final class ExampleFixturesTest extends TestCase
         self::assertTrue($sawSchemaProductMissing);
     }
 
-    public function test_example_script_uses_static_fixtures_instead_of_external_services(): void
+    public function test_example_runner_uses_static_fixtures_instead_of_external_services(): void
     {
-        $script = file_get_contents(__DIR__ . '/../examples/basic-analysis.php');
+        $runner = file_get_contents(__DIR__ . '/../examples/run-analysis.php');
+        $basicScript = file_get_contents(__DIR__ . '/../examples/basic-analysis.php');
 
-        self::assertIsString($script);
-        self::assertStringContainsString('StaticSearchProvider', $script);
-        self::assertStringContainsString('FixturePageFetcher', $script);
-        self::assertStringNotContainsString('curl_', $script);
-        self::assertStringNotContainsString('HttpClient', $script);
-        self::assertStringNotContainsString('https://www.google.', $script);
-        self::assertStringNotContainsString('https://www.bing.', $script);
+        self::assertIsString($runner);
+        self::assertIsString($basicScript);
+        self::assertStringContainsString('StaticSearchProvider', $runner);
+        self::assertStringContainsString('FixturePageFetcher', $runner);
+        self::assertStringContainsString('runExampleAnalysis', $basicScript);
+
+        foreach ([$runner, $basicScript] as $script) {
+            self::assertStringNotContainsString('curl_', $script);
+            self::assertStringNotContainsString('HttpClient', $script);
+            self::assertStringNotContainsString('https://www.google.', $script);
+            self::assertStringNotContainsString('https://www.bing.', $script);
+        }
     }
 
     /**
