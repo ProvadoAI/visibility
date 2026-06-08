@@ -4,7 +4,71 @@
 
 ## v0.1 scope
 
-v0.1 is limited to a core engine skeleton and, in later phases, deterministic analysis of caller-supplied product, query, and search-result data. It does not include Laravel integration, dashboards, live scraping, crawlers, search providers, AI answer-engine checks, semantic/vector matching, or external API calls.
+v0.1 is limited to a core engine skeleton and deterministic analysis of caller-supplied product, query, search-result, and page HTML evidence. It does not include Laravel integration, dashboards, live scraping, crawlers, live search providers, AI answer-engine checks, semantic/vector matching, or external API calls.
+
+## v0.1 usage example
+
+v0.1 analyzes **one product at a time**. The package does not scrape Google, Bing, marketplaces, or any other external provider. Search results and product-page HTML are supplied by the caller, usually from in-memory objects or local fixtures. Given that deterministic evidence, the analyzer produces query visibility findings and a prioritized summary.
+
+The repository includes a local-only demo under [`examples/`](examples/):
+
+- [`examples/basic-analysis.php`](examples/basic-analysis.php) builds one `ProductSubject`, one expected-visible `SearchQuery`, a `StaticSearchProvider`, a `FixturePageFetcher`, `VisibilityAnalyzer`, and `JsonReportSerializer`.
+- [`examples/fixtures/search-results.json`](examples/fixtures/search-results.json) contains static search result evidence where the expected product URL is absent.
+- [`examples/fixtures/product-page.html`](examples/fixtures/product-page.html) contains deterministic product-page HTML with technical issues: a `noindex` meta directive, a canonical URL pointing to another page, and no Product/Offer JSON-LD.
+- [`examples/sample-report.json`](examples/sample-report.json) is a short deterministic JSON report with `generatedAt` fixed to `2026-01-01T00:00:00+00:00`.
+
+After installing dependencies in your own environment, you can run the example script locally:
+
+```sh
+php examples/basic-analysis.php
+```
+
+Runtime validation for this repository is owner-managed; the example is intentionally fixture-only and does not perform HTTP calls, browser automation, live scraping, or framework bootstrapping.
+
+### Minimal flow
+
+```php
+$product = new ProductSubject(
+    expectedUrl: 'https://example.test/products/aurora-trail-shoe',
+    name: 'Aurora Trail Shoe',
+    brand: 'Acme Outdoor',
+    category: 'Trail running shoes',
+    expectedTerms: ['Aurora Trail Shoe', 'Acme Outdoor', 'waterproof trail running shoes'],
+    commercialPriority: 'critical',
+    commercialValue: 'launch_product_high_margin',
+);
+
+$query = new SearchQuery(
+    text: 'acme waterproof trail running shoes',
+    provider: 'static-fixture',
+    intent: 'category_product',
+    expectedVisibility: true,
+    priority: 'critical',
+    reason: 'High-value launch product should appear for branded category demand.',
+);
+
+$report = $analyzer->analyze($product, [$query]);
+$json = (new JsonReportSerializer())->serialize($report, new DateTimeImmutable('2026-01-01T00:00:00+00:00'));
+```
+
+The full example wires the supporting objects explicitly:
+
+- `StaticSearchProvider` receives a caller-supplied `SearchResultSet` from the JSON fixture.
+- `FixturePageFetcher` receives a `PageSnapshot` whose body comes from the HTML fixture.
+- `VisibilityAnalyzer` uses the static provider, fixture fetcher, URL matcher, page parser, detectors, and summary generation.
+- `JsonReportSerializer` emits deterministic JSON when passed a fixed timestamp.
+
+### Reading the JSON output
+
+The main output sections are:
+
+- `queryVisibilities`: one entry per supplied query, including the query context, visible/not-visible/uncertain status, URL match evidence, query-level findings, and warnings.
+- `findings`: diagnostics attached to each query visibility. In the demo these include absence from supplied search results, `noindex`, canonical mismatch, and missing Product/Offer structured data.
+- `summary.overallStatus`: the rollup visibility status for the product across supplied queries.
+- `summary.overallPriority`: the business priority after combining query priority, product commercial context, and finding severity.
+- `summary.topProbableCauses`: the most important likely reasons the product is not visible.
+- `summary.topRecommendedActions`: prioritized next actions derived from the findings.
+- `evidenceReferences`: pointers to report fields that support the summary and recommended actions.
 
 ## Documents
 

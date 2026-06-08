@@ -1,0 +1,220 @@
+{
+    "product": {
+        "expectedUrl": "https://example.test/products/aurora-trail-shoe",
+        "id": "demo-aurora-trail-shoe",
+        "name": "Aurora Trail Shoe",
+        "brand": "Acme Outdoor",
+        "sku": null,
+        "category": "Trail running shoes",
+        "acceptableUrlVariants": [],
+        "expectedTerms": [
+            "Aurora Trail Shoe",
+            "Acme Outdoor",
+            "waterproof trail running shoes"
+        ],
+        "commercialPriority": "critical",
+        "commercialValue": "launch_product_high_margin",
+        "price": 149,
+        "currency": "USD",
+        "stockStatus": "in_stock"
+    },
+    "queryVisibilities": [
+        {
+            "query": {
+                "text": "acme waterproof trail running shoes",
+                "provider": "static-fixture",
+                "locale": "en_US",
+                "device": "desktop",
+                "intent": "category_product",
+                "expectedVisibility": true,
+                "priority": "critical",
+                "reason": "High-value launch product should appear for branded category demand."
+            },
+            "provider": "static-fixture",
+            "locale": "en_US",
+            "device": "desktop",
+            "status": "not_visible",
+            "urlMatch": {
+                "matched": false,
+                "matchType": "none",
+                "expectedUrl": "https://example.test/products/aurora-trail-shoe",
+                "matchedUrl": null,
+                "matchedPosition": null,
+                "matchedResult": null,
+                "evidence": {
+                    "reason": "expected_url_absent_from_static_results",
+                    "searchedResultCount": 3,
+                    "observedUrls": [
+                        "https://example.test/collections/trail-running-shoes",
+                        "https://reviews.example.test/best-waterproof-trail-running-shoes",
+                        "https://example.test/products/ridge-runner-shoe"
+                    ]
+                }
+            },
+            "matchedResult": null,
+            "findings": [
+                {
+                    "code": "query.expected_visibility_missing",
+                    "severity": "high",
+                    "confidence": 0.95,
+                    "message": "The caller expected this product to be visible for the query, but no matching URL was found.",
+                    "evidence": {
+                        "query": "acme waterproof trail running shoes",
+                        "expectedVisibility": true,
+                        "priority": "critical",
+                        "resultCount": 3,
+                        "expectedUrl": "https://example.test/products/aurora-trail-shoe"
+                    },
+                    "recommendation": "Investigate why the product is absent for this expected-visible query."
+                },
+                {
+                    "code": "page.noindex_meta",
+                    "severity": "high",
+                    "confidence": 0.98,
+                    "message": "The parsed page contains a meta robots noindex directive.",
+                    "evidence": {
+                        "parsedPage.robotsDirectives": [
+                            "noindex",
+                            "follow"
+                        ],
+                        "pageSnapshot.requestedUrl": "https://example.test/products/aurora-trail-shoe"
+                    },
+                    "recommendation": "Remove noindex from the page meta robots directives if the product page should be indexed."
+                },
+                {
+                    "code": "canonical.points_to_other_url",
+                    "severity": "high",
+                    "confidence": 0.95,
+                    "message": "The canonical URL points to a category page instead of the expected product URL.",
+                    "evidence": {
+                        "parsedPage.canonicalUrl": "https://example.test/collections/trail-running-shoes",
+                        "product.expectedUrl": "https://example.test/products/aurora-trail-shoe"
+                    },
+                    "recommendation": "Point the canonical URL at the product page or an explicitly acceptable product URL variant."
+                },
+                {
+                    "code": "schema.product_missing",
+                    "severity": "medium",
+                    "confidence": 0.9,
+                    "message": "No Product structured data was found in the fixture HTML.",
+                    "evidence": {
+                        "parsedPage.schemaTypes": []
+                    },
+                    "recommendation": "Add Product and Offer JSON-LD that identifies the product, price, currency, and availability."
+                }
+            ],
+            "warnings": [
+                "Fixture HTML intentionally includes noindex and a canonical URL pointing away from the product."
+            ]
+        }
+    ],
+    "pageSnapshot": {
+        "requestedUrl": "https://example.test/products/aurora-trail-shoe",
+        "finalUrl": "https://example.test/products/aurora-trail-shoe",
+        "statusCode": 200,
+        "headers": {
+            "content-type": [
+                "text/html; charset=utf-8"
+            ]
+        },
+        "body": "See examples/fixtures/product-page.html for the full deterministic HTML fixture.",
+        "contentType": "text/html; charset=utf-8",
+        "redirects": [],
+        "durationMs": 3,
+        "failureType": "none",
+        "warnings": [
+            "Fixture HTML intentionally includes noindex and a canonical URL pointing away from the product."
+        ]
+    },
+    "parsedPage": {
+        "url": "https://example.test/products/aurora-trail-shoe",
+        "title": "Aurora Trail Shoe | Acme Outdoor",
+        "metaDescription": "Lightweight trail running shoe for technical terrain.",
+        "canonicalUrl": "https://example.test/collections/trail-running-shoes",
+        "robotsDirectives": [
+            "noindex",
+            "follow"
+        ],
+        "xRobotsDirectives": [],
+        "hreflangLinks": [],
+        "h1": "Aurora Trail Shoe",
+        "headings": [
+            "Aurora Trail Shoe"
+        ],
+        "links": [],
+        "jsonLdBlocks": [],
+        "schemaTypes": [],
+        "productSchemaCandidates": [],
+        "offerSchemaCandidates": [],
+        "bodyTextSummary": "Aurora Trail Shoe The Acme Outdoor Aurora Trail Shoe is a lightweight waterproof trail running shoe built for rocky routes.",
+        "parserWarnings": [],
+        "canonicalUrls": [
+            "https://example.test/collections/trail-running-shoes"
+        ]
+    },
+    "summaryFindings": [],
+    "warnings": [
+        "Fixture HTML intentionally includes noindex and a canonical URL pointing away from the product."
+    ],
+    "generatedAt": "2026-01-01T00:00:00+00:00",
+    "summary": {
+        "overallStatus": "not_visible",
+        "overallPriority": "critical",
+        "message": "Aurora Trail Shoe is not visible for the critical expected query and has page-level blockers that can explain the absence.",
+        "highestPriorityAffectedQuery": "acme waterproof trail running shoes",
+        "topProbableCauses": [
+            {
+                "code": "page.noindex_meta",
+                "category": "indexability_blocker",
+                "message": "The parsed page contains a meta robots noindex directive.",
+                "affectedQuery": "acme waterproof trail running shoes",
+                "severity": "high"
+            },
+            {
+                "code": "canonical.points_to_other_url",
+                "category": "canonical_blocker",
+                "message": "The canonical URL points to a category page instead of the expected product URL.",
+                "affectedQuery": "acme waterproof trail running shoes",
+                "severity": "high"
+            },
+            {
+                "code": "query.expected_visibility_missing",
+                "category": "visibility_quality",
+                "message": "The caller expected this product to be visible for the query, but no matching URL was found.",
+                "affectedQuery": "acme waterproof trail running shoes",
+                "severity": "high"
+            }
+        ],
+        "topRecommendedActions": [
+            {
+                "code": "page.noindex_meta",
+                "category": "indexability_blocker",
+                "action": "Remove noindex from the page meta robots directives if the product page should be indexed.",
+                "affectedQuery": "acme waterproof trail running shoes"
+            },
+            {
+                "code": "canonical.points_to_other_url",
+                "category": "canonical_blocker",
+                "action": "Point the canonical URL at the product page or an explicitly acceptable product URL variant.",
+                "affectedQuery": "acme waterproof trail running shoes"
+            },
+            {
+                "code": "schema.product_missing",
+                "category": "structured_data_gap",
+                "action": "Add Product and Offer JSON-LD that identifies the product, price, currency, and availability.",
+                "affectedQuery": "acme waterproof trail running shoes"
+            }
+        ],
+        "evidenceReferences": [
+            "queryVisibilities[0].urlMatch.evidence.observedUrls",
+            "queryVisibilities[0].findings[1].evidence.parsedPage.robotsDirectives",
+            "parsedPage.canonicalUrl",
+            "pageSnapshot.warnings"
+        ],
+        "totalQueries": 1,
+        "visibleCount": 0,
+        "notVisibleCount": 1,
+        "uncertainCount": 0,
+        "highSeverityFindingCount": 3
+    }
+}
