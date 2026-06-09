@@ -224,7 +224,7 @@ final class ScenarioCliTest extends TestCase
         self::assertSame(0, $exitCode);
         self::assertSame('', $stderr);
         self::assertJson($stdout);
-        self::assertStringContainsString('product.not_visible_in_results', $stdout);
+        self::assertStringContainsString('product.not_found_in_results', $stdout);
     }
 
     public function test_unknown_command_returns_usage_error(): void
