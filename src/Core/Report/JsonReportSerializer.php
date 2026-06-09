@@ -15,12 +15,17 @@ final readonly class JsonReportSerializer implements ReportSerializer
         | JSON_UNESCAPED_SLASHES
         | JSON_UNESCAPED_UNICODE;
 
+    public function __construct(private DiagnosticSummaryProjector $diagnosticSummaryProjector = new DiagnosticSummaryProjector())
+    {
+    }
+
     /**
      * @throws JsonException
      */
     public function serialize(VisibilityReport $report, ?DateTimeImmutable $generatedAt = null): string
     {
         $payload = $report->toArray();
+        $payload['diagnosticSummary'] = $this->diagnosticSummaryProjector->project($report);
 
         if ($generatedAt !== null) {
             $payload['generatedAt'] = $this->normalizeGeneratedAt($generatedAt)->format(DATE_ATOM);
