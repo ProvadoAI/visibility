@@ -5,7 +5,6 @@ declare(strict_types=1);
 use PHPUnit\Framework\TestCase;
 use VisibilityDetector\Core\Detector\DetectionContext;
 use VisibilityDetector\Core\Detector\IndexabilityDetector;
-use VisibilityDetector\Core\Page\PageSnapshot;
 use VisibilityDetector\Core\Page\ParsedPage;
 use VisibilityDetector\Core\Product\ProductSubject;
 use VisibilityDetector\Core\Search\SearchQuery;
@@ -14,51 +13,6 @@ use VisibilityDetector\Core\Url\UrlMatch;
 
 final class IndexabilityDetectorTest extends TestCase
 {
-    public function test_fetch_failure_produces_finding(): void
-    {
-        $findings = $this->detector()->detect($this->context(
-            pageSnapshot: $this->snapshot(failureType: 'timeout'),
-        ));
-
-        self::assertSame('page.fetch_failed', $findings[0]->code);
-        self::assertSame('timeout', $findings[0]->evidence['pageSnapshot']['failureType']);
-    }
-
-    public function test_null_failure_type_does_not_produce_fetch_failed_finding(): void
-    {
-        $findings = $this->detector()->detect($this->context(
-            pageSnapshot: $this->snapshot(failureType: null),
-        ));
-
-        self::assertNotContains('page.fetch_failed', $this->codes($findings));
-    }
-
-    public function test_non_2xx_http_status_produces_finding(): void
-    {
-        $findings = $this->detector()->detect($this->context(
-            pageSnapshot: $this->snapshot(statusCode: 404),
-        ));
-
-        self::assertContains('page.http_status_not_ok', $this->codes($findings));
-    }
-
-    public function test_empty_body_produces_finding(): void
-    {
-        $findings = $this->detector()->detect($this->context(
-            pageSnapshot: $this->snapshot(body: ''),
-        ));
-
-        self::assertContains('page.empty_body', $this->codes($findings));
-    }
-
-    public function test_non_html_content_produces_finding(): void
-    {
-        $findings = $this->detector()->detect($this->context(
-            pageSnapshot: $this->snapshot(contentType: 'application/json'),
-        ));
-
-        self::assertContains('page.non_html_content', $this->codes($findings));
-    }
 
     public function test_meta_noindex_produces_finding(): void
     {
@@ -249,7 +203,7 @@ final class IndexabilityDetectorTest extends TestCase
         return array_map(static fn ($finding): string => $finding->code, $findings);
     }
 
-    private function context(?PageSnapshot $pageSnapshot = null, ?ParsedPage $parsedPage = null): DetectionContext
+    private function context(?ParsedPage $parsedPage = null): DetectionContext
     {
         $query = new SearchQuery(text: 'widget', provider: 'static');
 
@@ -265,24 +219,7 @@ final class IndexabilityDetectorTest extends TestCase
                 matchType: 'none',
                 expectedUrl: 'https://merchant.test/products/widget',
             ),
-            pageSnapshot: $pageSnapshot,
             parsedPage: $parsedPage,
-        );
-    }
-
-    private function snapshot(
-        ?int $statusCode = 200,
-        ?string $body = '<html><body>Widget</body></html>',
-        ?string $contentType = 'text/html',
-        ?string $failureType = 'none',
-    ): PageSnapshot {
-        return new PageSnapshot(
-            requestedUrl: 'https://merchant.test/products/widget',
-            finalUrl: 'https://merchant.test/products/widget',
-            statusCode: $statusCode,
-            body: $body,
-            contentType: $contentType,
-            failureType: $failureType,
         );
     }
 

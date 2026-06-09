@@ -6,7 +6,6 @@ namespace VisibilityDetector\Core\Detector;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use VisibilityDetector\Core\Page\PageSnapshot;
 use VisibilityDetector\Core\Page\ParsedPage;
 use VisibilityDetector\Core\Report\Finding;
 use VisibilityDetector\Core\Url\UrlNormalizer;
@@ -39,102 +38,11 @@ final readonly class IndexabilityDetector implements Detector
             )];
         }
 
-        $findings = [];
-
-        if ($context->pageSnapshot !== null) {
-            $findings = array_merge($findings, $this->snapshotFindings($context));
-        }
-
-        if ($context->parsedPage !== null) {
-            $findings = array_merge($findings, $this->parsedPageFindings($context));
-        }
-
-        return $findings;
-    }
-
-    /**
-     * @return array<int, Finding>
-     */
-    private function snapshotFindings(DetectionContext $context): array
-    {
-        $snapshot = $context->pageSnapshot;
-
-        if (!$snapshot instanceof PageSnapshot) {
+        if ($context->parsedPage === null) {
             return [];
         }
 
-        $findings = [];
-        $evidence = $this->snapshotEvidence($context, $snapshot);
-
-        if (is_string($snapshot->failureType) && trim($snapshot->failureType) !== '' && $snapshot->failureType !== 'none') {
-            $findings[] = new Finding(
-                code: 'page.fetch_failed',
-                severity: 'high',
-                confidence: 0.95,
-                message: 'The supplied page snapshot records a fetch failure.',
-                evidence: $evidence,
-                recommendation: 'Resolve the fetch failure before evaluating page visibility or indexability.',
-            );
-        }
-
-        if ($snapshot->statusCode !== null && ($snapshot->statusCode < 200 || $snapshot->statusCode > 299)) {
-            $findings[] = new Finding(
-                code: 'page.http_error',
-                severity: 'high',
-                confidence: 0.95,
-                message: 'The product page returned an HTTP error status in the supplied snapshot.',
-                evidence: $evidence + ['reason' => 'non_2xx_status_code'],
-                recommendation: 'Ensure the product page returns a successful 2xx HTTP status for indexable requests.',
-            );
-
-            $findings[] = new Finding(
-                code: 'page.http_status_not_ok',
-                severity: 'high',
-                confidence: 0.95,
-                message: 'The product page returned a non-2xx HTTP status in the supplied snapshot.',
-                evidence: $evidence,
-                recommendation: 'Ensure the product page returns a successful 2xx HTTP status for indexable requests.',
-            );
-        }
-
-        if ($snapshot->finalUrl !== null && trim($snapshot->finalUrl) !== '' && !$this->finalUrlMatchesProduct($context, $snapshot->finalUrl)) {
-            $findings[] = new Finding(
-                code: 'page.redirects_elsewhere',
-                severity: 'high',
-                confidence: 0.95,
-                message: 'The product page request resolved to a final URL outside the expected product URL set.',
-                evidence: $evidence + [
-                    'normalizedFinalUrl' => $this->normalizer->normalize($snapshot->finalUrl),
-                    'normalizedAcceptedUrls' => $this->acceptedCanonicalUrls($context),
-                    'reason' => 'final_url_not_in_expected_or_acceptable_urls',
-                ],
-                recommendation: 'Ensure product page redirects resolve to the expected product URL or an explicitly acceptable product URL variant.',
-            );
-        }
-
-        if ($snapshot->body === null || trim($snapshot->body) === '') {
-            $findings[] = new Finding(
-                code: 'page.empty_body',
-                severity: 'medium',
-                confidence: 0.9,
-                message: 'The supplied page snapshot has an empty response body.',
-                evidence: $evidence,
-                recommendation: 'Provide an HTML response body with crawlable product content.',
-            );
-        }
-
-        if ($snapshot->contentType !== null && !$this->isHtmlContentType($snapshot->contentType)) {
-            $findings[] = new Finding(
-                code: 'page.non_html_content',
-                severity: 'high',
-                confidence: 0.9,
-                message: 'The supplied page snapshot does not have an HTML content type.',
-                evidence: $evidence,
-                recommendation: 'Serve the product page as HTML for crawler and search-engine access.',
-            );
-        }
-
-        return $findings;
+        return $this->parsedPageFindings($context);
     }
 
     /**
@@ -372,11 +280,6 @@ final readonly class IndexabilityDetector implements Detector
         return in_array($this->normalizer->normalize($canonicalUrl), $this->acceptedCanonicalUrls($context), true);
     }
 
-    private function finalUrlMatchesProduct(DetectionContext $context, string $finalUrl): bool
-    {
-        return in_array($this->normalizer->normalize($finalUrl), $this->acceptedCanonicalUrls($context), true);
-    }
-
     /**
      * @return array<int, string>
      */
@@ -388,13 +291,6 @@ final readonly class IndexabilityDetector implements Detector
         )));
     }
 
-    private function isHtmlContentType(string $contentType): bool
-    {
-        $type = strtolower(trim(explode(';', $contentType, 2)[0]));
-
-        return $type === 'text/html' || $type === 'application/xhtml+xml';
-    }
-
     /**
      * @return array<string, mixed>
      */
@@ -404,25 +300,6 @@ final readonly class IndexabilityDetector implements Detector
             'product' => [
                 'expectedUrl' => $context->product->expectedUrl,
                 'acceptableUrlVariants' => $context->product->acceptableUrlVariants,
-            ],
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function snapshotEvidence(DetectionContext $context, PageSnapshot $snapshot): array
-    {
-        return $this->baseEvidence($context) + [
-            'pageSnapshot' => [
-                'requestedUrl' => $snapshot->requestedUrl,
-                'finalUrl' => $snapshot->finalUrl,
-                'statusCode' => $snapshot->statusCode,
-                'contentType' => $snapshot->contentType,
-                'failureType' => $snapshot->failureType,
-                'redirects' => $snapshot->redirects,
-                'warnings' => $snapshot->warnings,
-                'bodyLength' => $snapshot->body === null ? null : strlen($snapshot->body),
             ],
         ];
     }
