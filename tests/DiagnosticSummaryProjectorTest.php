@@ -80,7 +80,7 @@ final class DiagnosticSummaryProjectorTest extends TestCase
 
         self::assertSame('Visible with technical risk', $diagnosticSummary['title']);
         self::assertSame('schema.product_missing', $diagnosticSummary['primaryIssue']['code']);
-        self::assertSame('Add schema.org Product structured data for the product page.', $diagnosticSummary['recommendedNextStep']['action']);
+        self::assertSame($payload['summary']['topRecommendedActions'][0]['action'], $diagnosticSummary['recommendedNextStep']['action']);
         self::assertSame($payload['urlEvidence']['expectedUrl'], $diagnosticSummary['evidenceHighlights'][0]['expectedUrl']);
         self::assertSame($payload['urlEvidence']['matchedUrls'], $diagnosticSummary['evidenceHighlights'][0]['matchedUrls']);
     }
