@@ -16,6 +16,7 @@ final readonly class ScenarioLoader
 {
     public function __construct(
         private string $projectRoot,
+        private ?ScenarioValidator $scenarioValidator = null,
     ) {
     }
 
@@ -24,6 +25,9 @@ final readonly class ScenarioLoader
         $resolvedScenarioPath = $this->resolveExistingPath($scenarioPath, getcwd() ?: $this->projectRoot, 'Scenario file');
         $scenarioDirectory = dirname($resolvedScenarioPath);
         $payload = $this->decodeJsonFile($resolvedScenarioPath, 'Scenario file');
+        $scenarioValidator = $this->scenarioValidator ?? new ScenarioValidator();
+
+        $scenarioValidator->validatePayload($payload);
 
         if (!isset($payload['product']) || !is_array($payload['product'])) {
             throw new InvalidArgumentException('Scenario product must be an object.');
@@ -39,12 +43,16 @@ final readonly class ScenarioLoader
             $payload['queries'],
         );
 
-        return new Scenario(
+        $scenario = new Scenario(
             product: $product,
             queries: $queries,
             searchResultSets: $this->loadSearchResultSets($payload, $scenarioDirectory),
             pageSnapshots: $this->loadPageSnapshots($payload, $scenarioDirectory),
         );
+
+        $scenarioValidator->validateScenario($scenario);
+
+        return $scenario;
     }
 
     /**

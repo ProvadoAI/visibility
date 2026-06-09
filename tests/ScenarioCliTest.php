@@ -75,6 +75,158 @@ final class ScenarioCliTest extends TestCase
         self::assertStringContainsString('Page HTML fixture does not exist', $stderr);
     }
 
+    public function test_missing_product_expected_url_returns_validation_error(): void
+    {
+        $product = $this->productPayload();
+        unset($product['expectedUrl']);
+
+        $scenario = $this->writeTempScenario([
+            'product' => $product,
+            'queries' => [$this->queryPayload()],
+            'searchResults' => [$this->searchResultPayload()],
+            'pageFixtures' => [$this->pageFixturePayload('examples/fixtures/product-page-clean.html')],
+        ]);
+
+        [$exitCode, $stdout, $stderr] = $this->runCli(['visibility', 'analyze', $scenario]);
+
+        self::assertSame(1, $exitCode);
+        self::assertSame('', $stdout);
+        self::assertStringContainsString('Scenario product expectedUrl is required', $stderr);
+    }
+
+    public function test_missing_queries_returns_validation_error(): void
+    {
+        $scenario = $this->writeTempScenario([
+            'product' => $this->productPayload(),
+            'searchResults' => [$this->searchResultPayload()],
+            'pageFixtures' => [$this->pageFixturePayload('examples/fixtures/product-page-clean.html')],
+        ]);
+
+        [$exitCode, $stdout, $stderr] = $this->runCli(['visibility', 'analyze', $scenario]);
+
+        self::assertSame(1, $exitCode);
+        self::assertSame('', $stdout);
+        self::assertStringContainsString('Scenario queries must be a non-empty array', $stderr);
+    }
+
+    public function test_empty_queries_returns_validation_error(): void
+    {
+        $scenario = $this->writeTempScenario([
+            'product' => $this->productPayload(),
+            'queries' => [],
+            'searchResults' => [$this->searchResultPayload()],
+            'pageFixtures' => [$this->pageFixturePayload('examples/fixtures/product-page-clean.html')],
+        ]);
+
+        [$exitCode, $stdout, $stderr] = $this->runCli(['visibility', 'analyze', $scenario]);
+
+        self::assertSame(1, $exitCode);
+        self::assertSame('', $stdout);
+        self::assertStringContainsString('Scenario queries must be a non-empty array', $stderr);
+    }
+
+    public function test_empty_query_text_returns_validation_error(): void
+    {
+        $query = $this->queryPayload();
+        $query['text'] = '';
+
+        $scenario = $this->writeTempScenario([
+            'product' => $this->productPayload(),
+            'queries' => [$query],
+            'searchResults' => [$this->searchResultPayload()],
+            'pageFixtures' => [$this->pageFixturePayload('examples/fixtures/product-page-clean.html')],
+        ]);
+
+        [$exitCode, $stdout, $stderr] = $this->runCli(['visibility', 'analyze', $scenario]);
+
+        self::assertSame(1, $exitCode);
+        self::assertSame('', $stdout);
+        self::assertStringContainsString('Scenario queries[0] text is required', $stderr);
+    }
+
+    public function test_missing_search_result_evidence_for_query_returns_validation_error(): void
+    {
+        $secondQuery = $this->queryPayload();
+        $secondQuery['text'] = 'aurora trail shoe review';
+
+        $scenario = $this->writeTempScenario([
+            'product' => $this->productPayload(),
+            'queries' => [$this->queryPayload(), $secondQuery],
+            'searchResults' => [$this->searchResultPayload()],
+            'pageFixtures' => [$this->pageFixturePayload('examples/fixtures/product-page-clean.html')],
+        ]);
+
+        [$exitCode, $stdout, $stderr] = $this->runCli(['visibility', 'analyze', $scenario]);
+
+        self::assertSame(1, $exitCode);
+        self::assertSame('', $stdout);
+        self::assertStringContainsString('Missing search result evidence for scenario query', $stderr);
+    }
+
+    public function test_malformed_page_fixture_definition_returns_validation_error(): void
+    {
+        $scenario = $this->writeTempScenario([
+            'product' => $this->productPayload(),
+            'queries' => [$this->queryPayload()],
+            'searchResults' => [$this->searchResultPayload()],
+            'pageFixtures' => [[
+                'requestedUrl' => 'https://example.test/products/aurora-trail-shoe',
+                'statusCode' => 200,
+            ]],
+        ]);
+
+        [$exitCode, $stdout, $stderr] = $this->runCli(['visibility', 'analyze', $scenario]);
+
+        self::assertSame(1, $exitCode);
+        self::assertSame('', $stdout);
+        self::assertStringContainsString('Scenario pageFixtures[0] must define htmlFixture or body', $stderr);
+    }
+
+    public function test_ambiguous_duplicate_search_result_evidence_returns_validation_error(): void
+    {
+        $scenario = $this->writeTempScenario([
+            'product' => $this->productPayload(),
+            'queries' => [$this->queryPayload()],
+            'searchResults' => [$this->searchResultPayload(), $this->searchResultPayload()],
+            'pageFixtures' => [$this->pageFixturePayload('examples/fixtures/product-page-clean.html')],
+        ]);
+
+        [$exitCode, $stdout, $stderr] = $this->runCli(['visibility', 'analyze', $scenario]);
+
+        self::assertSame(1, $exitCode);
+        self::assertSame('', $stdout);
+        self::assertStringContainsString('Ambiguous duplicate search result evidence', $stderr);
+    }
+
+    public function test_mismatched_search_result_evidence_returns_validation_error(): void
+    {
+        $searchResult = $this->searchResultPayload();
+        $searchResult['query']['provider'] = 'other-provider';
+
+        $scenario = $this->writeTempScenario([
+            'product' => $this->productPayload(),
+            'queries' => [$this->queryPayload()],
+            'searchResults' => [$searchResult],
+            'pageFixtures' => [$this->pageFixturePayload('examples/fixtures/product-page-clean.html')],
+        ]);
+
+        [$exitCode, $stdout, $stderr] = $this->runCli(['visibility', 'analyze', $scenario]);
+
+        self::assertSame(1, $exitCode);
+        self::assertSame('', $stdout);
+        self::assertStringContainsString('Search result evidence query/provider does not match any scenario query', $stderr);
+    }
+
+    public function test_existing_fixture_backed_scenario_still_runs_after_validation(): void
+    {
+        [$exitCode, $stdout, $stderr] = $this->runCli(['visibility', 'analyze', $this->projectRoot() . '/examples/scenarios/not-visible.json']);
+
+        self::assertSame(0, $exitCode);
+        self::assertSame('', $stderr);
+        self::assertJson($stdout);
+        self::assertStringContainsString('product.not_visible_in_results', $stdout);
+    }
+
     public function test_unknown_command_returns_usage_error(): void
     {
         [$exitCode, $stdout, $stderr] = $this->runCli(['visibility', 'inspect', $this->projectRoot() . '/examples/scenarios/visible-clean.json']);
