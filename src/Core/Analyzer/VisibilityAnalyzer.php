@@ -176,16 +176,12 @@ final readonly class VisibilityAnalyzer
     {
         return $this->suppressDuplicateFinding(
             $this->suppressDuplicateFinding(
-                $this->suppressDuplicateFinding(
-                    $findings,
-                    duplicateCode: 'page.canonical_mismatch',
-                    primaryCode: 'canonical.points_to_other_url',
-                ),
-                duplicateCode: 'page.product_schema_missing',
-                primaryCode: 'schema.product_missing',
+                $findings,
+                duplicateCode: 'page.canonical_mismatch',
+                primaryCode: 'canonical.points_to_other_url',
             ),
-            duplicateCode: 'page.http_status_not_ok',
-            primaryCode: 'page.http_error',
+            duplicateCode: 'page.product_schema_missing',
+            primaryCode: 'schema.product_missing',
         );
     }
 
