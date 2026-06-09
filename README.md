@@ -123,7 +123,7 @@ For terminal demos or quick inspection, pass `--compact` to print deterministic 
 bin/visibility analyze examples/scenarios/visible-clean.json --compact
 ```
 
-Compact JSON omits full `pageSnapshot.body`, large parsed page internals, and large nested evidence payloads. Errors, such as an unknown command, invalid JSON, or a missing fixture file, are written to stderr and return a non-zero exit code.
+Compact JSON omits full `pageSnapshot.body`, large parsed page internals, and large nested evidence payloads. Errors, such as an unknown command, invalid JSON, a scenario validation failure, or a missing fixture file, are written to stderr and return a non-zero exit code.
 
 The CLI is intentionally local-only: it does not call search engines, fetch live pages, run browser rendering, crawl sites, use Laravel, or invoke external services. Search-result evidence comes from scenario inline data or local JSON fixtures, and page evidence comes from local HTML fixtures loaded into the existing `FixturePageFetcher` abstraction.
 
@@ -138,6 +138,23 @@ A scenario file is explicit and one-product scoped. It defines:
 - `pageFixtures`: local page fixture definitions. Each entry supplies the requested/final URL, status metadata, and either `htmlFixture` for a local HTML file or an inline `body` value.
 
 Relative fixture paths are resolved predictably from the scenario file location first, then from the repository root/current working directory. The examples use repository-root-relative fixture paths such as `examples/fixtures/product-page-clean.html`.
+
+### Scenario validation and authoring guardrails
+
+The CLI validates scenario structure before analysis starts. Invalid scenarios fail early, write a clear `Error: ...` message to stderr, and return a non-zero exit code. Validation is deterministic and local-only; it does not use network calls, browser rendering, scraping, schema registries, Laravel, databases, UI workflows, or batch execution.
+
+Common scenario authoring mistakes caught before analysis include:
+
+- missing or empty `product.expectedUrl`;
+- missing `queries`, an empty `queries` array, or query objects with missing/empty `text` or `provider`;
+- missing search-result evidence for a declared query;
+- search-result evidence whose query/provider/locale/device context does not match any declared scenario query;
+- duplicate search-result evidence for the same query/provider/locale/device context, because that would make fixture selection ambiguous;
+- missing local JSON or HTML fixture files;
+- malformed `pageFixtures`, including entries without `requestedUrl` or without either `htmlFixture` or `body`;
+- page evidence that does not include a fixture for the product `expectedUrl` requested by the one-product analyzer.
+
+For each query in `queries`, provide exactly one matching search-result evidence object across `searchResultFixtures` and `searchResults`. A match uses the deterministic query context: `text`, `provider`, `locale`, and `device`. Page evidence should include a fixture whose `requestedUrl` is the product `expectedUrl`, because the analyzer fetches that single product URL from local fixtures.
 
 ```json
 {
