@@ -90,7 +90,10 @@ The main output sections are:
 - `summary.overallPriority`: the business priority after combining query priority, product commercial context, and finding severity.
 - `summary.topProbableCauses`: the most important likely reasons the product is not visible.
 - `summary.topRecommendedActions`: prioritized next actions derived from the findings.
+- `diagnosticSummary`: additive merchant-facing fields for demos and integrations, including `title`, `statusExplanation`, `primaryIssue`, `merchantExplanation`, `recommendedNextStep`, and `evidenceHighlights`. This object is deterministic and derived only from existing report data: statuses, query `visibilityHealth`, prioritized findings, recommended actions, URL evidence, and report summary values. It does not use AI, LLMs, embeddings, semantic matching, scraping, browser rendering, external services, dashboards, SaaS workflows, or batch analysis.
 - `evidenceReferences`: structured evidence excerpts copied from the top summary findings, including code, category, affected query, severity, and supporting evidence.
+
+`diagnosticSummary` is intentionally a summary layer, not a replacement for the full structured report. Full JSON output still includes the original query findings, URL evidence, `pageSnapshot`, `parsedPage`, `summaryFindings`, and `summary` sections so callers can inspect or present the underlying deterministic evidence. Compact JSON output remains focused on the existing compact fields and safely omits the merchant-facing summary.
 
 ## Documents
 
