@@ -79,12 +79,36 @@ final readonly class IndexabilityDetector implements Detector
 
         if ($snapshot->statusCode !== null && ($snapshot->statusCode < 200 || $snapshot->statusCode > 299)) {
             $findings[] = new Finding(
+                code: 'page.http_error',
+                severity: 'high',
+                confidence: 0.95,
+                message: 'The product page returned an HTTP error status in the supplied snapshot.',
+                evidence: $evidence + ['reason' => 'non_2xx_status_code'],
+                recommendation: 'Ensure the product page returns a successful 2xx HTTP status for indexable requests.',
+            );
+
+            $findings[] = new Finding(
                 code: 'page.http_status_not_ok',
                 severity: 'high',
                 confidence: 0.95,
                 message: 'The product page returned a non-2xx HTTP status in the supplied snapshot.',
                 evidence: $evidence,
                 recommendation: 'Ensure the product page returns a successful 2xx HTTP status for indexable requests.',
+            );
+        }
+
+        if ($snapshot->finalUrl !== null && trim($snapshot->finalUrl) !== '' && !$this->finalUrlMatchesProduct($context, $snapshot->finalUrl)) {
+            $findings[] = new Finding(
+                code: 'page.redirects_elsewhere',
+                severity: 'high',
+                confidence: 0.95,
+                message: 'The product page request resolved to a final URL outside the expected product URL set.',
+                evidence: $evidence + [
+                    'normalizedFinalUrl' => $this->normalizer->normalize($snapshot->finalUrl),
+                    'normalizedAcceptedUrls' => $this->acceptedCanonicalUrls($context),
+                    'reason' => 'final_url_not_in_expected_or_acceptable_urls',
+                ],
+                recommendation: 'Ensure product page redirects resolve to the expected product URL or an explicitly acceptable product URL variant.',
             );
         }
 
@@ -348,6 +372,11 @@ final readonly class IndexabilityDetector implements Detector
         return in_array($this->normalizer->normalize($canonicalUrl), $this->acceptedCanonicalUrls($context), true);
     }
 
+    private function finalUrlMatchesProduct(DetectionContext $context, string $finalUrl): bool
+    {
+        return in_array($this->normalizer->normalize($finalUrl), $this->acceptedCanonicalUrls($context), true);
+    }
+
     /**
      * @return array<int, string>
      */
@@ -391,6 +420,7 @@ final readonly class IndexabilityDetector implements Detector
                 'statusCode' => $snapshot->statusCode,
                 'contentType' => $snapshot->contentType,
                 'failureType' => $snapshot->failureType,
+                'redirects' => $snapshot->redirects,
                 'warnings' => $snapshot->warnings,
                 'bodyLength' => $snapshot->body === null ? null : strlen($snapshot->body),
             ],

@@ -495,6 +495,7 @@ final readonly class ReportSummarizer
         return match ($code) {
             'page.fetch_failed' => 'Restore crawlable product page fetch availability.',
             'page.http_status_not_ok', 'page.http_error' => 'Return a successful HTTP response for the product page.',
+            'page.redirects_elsewhere' => 'Keep product redirects resolving to the intended product URL.',
             'page.non_html_content', 'page.non_html_response' => 'Serve crawlable HTML content for the product page.',
             'page.noindex_meta', 'page.noindex_x_robots', 'page.robots_none' => 'Remove noindex or robots none directives from the product page when visibility is expected.',
             'canonical.points_to_other_url', 'canonical.points_to_homepage', 'canonical.invalid', 'canonical.relative' => 'Fix the canonical URL so it resolves to the intended product URL.',

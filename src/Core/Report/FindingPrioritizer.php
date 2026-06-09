@@ -35,7 +35,8 @@ final readonly class FindingPrioritizer
         'page.fetch_failed' => 1,
         'page.http_status_not_ok' => 2,
         'page.http_error' => 3,
-        'page.non_html_content' => 4,
+        'page.redirects_elsewhere' => 4,
+        'page.non_html_content' => 5,
         'page.non_html_response' => 4,
         'page.noindex_meta' => 5,
         'page.noindex_x_robots' => 6,
@@ -110,7 +111,7 @@ final readonly class FindingPrioritizer
 
     public function category(string $code): string
     {
-        if (in_array($code, ['page.fetch_failed', 'page.http_status_not_ok', 'page.http_error', 'page.non_html_content', 'page.non_html_response'], true)) {
+        if (in_array($code, ['page.fetch_failed', 'page.http_status_not_ok', 'page.http_error', 'page.redirects_elsewhere', 'page.non_html_content', 'page.non_html_response'], true)) {
             return 'availability_blocker';
         }
 
