@@ -6,6 +6,7 @@ use PHPUnit\Framework\TestCase;
 use VisibilityDetector\Core\Page\PageSnapshot;
 use VisibilityDetector\Core\Page\ParsedPage;
 use VisibilityDetector\Core\Product\ProductSubject;
+use VisibilityDetector\Core\Report\CompactJsonReportSerializer;
 use VisibilityDetector\Core\Report\Finding;
 use VisibilityDetector\Core\Report\JsonReportSerializer;
 use VisibilityDetector\Core\Report\QueryVisibility;
@@ -191,6 +192,39 @@ final class JsonReportSerializerTest extends TestCase
 
         self::assertStringContainsString('https://merchant.test/products/café-widget', $json);
         self::assertStringNotContainsString('https:\/\/merchant.test\/products', $json);
+    }
+
+
+    public function test_compact_serializer_is_deterministic_and_contains_key_diagnostics_only(): void
+    {
+        $serializer = new CompactJsonReportSerializer();
+
+        $first = $serializer->serialize($this->report());
+        $second = $serializer->serialize($this->report());
+
+        self::assertSame($first, $second);
+        self::assertJson($first);
+
+        $payload = $this->decode($first);
+
+        self::assertSame('https://merchant.test/products/café-widget', $payload['product']['expectedUrl']);
+        self::assertSame('cafe-widget', $payload['product']['id']);
+        self::assertSame('visible', $payload['overallStatus']);
+        self::assertSame('high', $payload['overallPriority']);
+        self::assertSame('buy café widget', $payload['queries'][0]['query']['text']);
+        self::assertSame('visible', $payload['queries'][0]['status']);
+        self::assertSame('at_risk', $payload['queries'][0]['visibilityHealth']);
+        self::assertSame(['content.description_missing'], array_column($payload['topProbableCauses'], 'code'));
+        self::assertSame(['Improve meta description.'], array_column($payload['topRecommendedActions'], 'action'));
+        self::assertSame('https://merchant.test/products/café-widget', $payload['urlEvidence']['requestedUrl']);
+        self::assertSame(['report warning'], $payload['warnings']);
+        self::assertArrayNotHasKey('pageSnapshot', $payload);
+        self::assertArrayNotHasKey('parsedPage', $payload);
+        self::assertArrayNotHasKey('summaryFindings', $payload);
+        self::assertStringNotContainsString('pageSnapshot', $first);
+        self::assertStringNotContainsString('bodyTextSummary', $first);
+        self::assertStringNotContainsString('jsonLdBlocks', $first);
+        self::assertStringNotContainsString('<html', $first);
     }
 
     public function test_serialization_propagates_json_throw_on_error_failures(): void

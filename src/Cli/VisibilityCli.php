@@ -10,6 +10,7 @@ use VisibilityDetector\Adapters\Static\StaticSearchProvider;
 use VisibilityDetector\Core\Analyzer\VisibilityAnalyzer;
 use VisibilityDetector\Core\Detector\VisibilityResultDetector;
 use VisibilityDetector\Core\Page\DomPageParser;
+use VisibilityDetector\Core\Report\CompactJsonReportSerializer;
 use VisibilityDetector\Core\Report\JsonReportSerializer;
 use VisibilityDetector\Core\Url\DefaultUrlMatcher;
 
@@ -45,7 +46,19 @@ final readonly class VisibilityCli
             return 1;
         }
 
+        $compact = false;
+
         if (isset($argv[3])) {
+            if ($argv[3] !== '--compact') {
+                $this->write($stderr, $this->usage('Unknown option: ' . $argv[3]));
+
+                return 1;
+            }
+
+            $compact = true;
+        }
+
+        if (isset($argv[4])) {
             $this->write($stderr, $this->usage('Too many arguments.'));
 
             return 1;
@@ -61,7 +74,9 @@ final readonly class VisibilityCli
                 pageParser: new DomPageParser(),
             ))->analyze($scenario->product, $scenario->queries);
 
-            $this->write($stdout, (new JsonReportSerializer())->serialize($report) . PHP_EOL);
+            $serializer = $compact ? new CompactJsonReportSerializer() : new JsonReportSerializer();
+
+            $this->write($stdout, $serializer->serialize($report) . PHP_EOL);
 
             return 0;
         } catch (Throwable $throwable) {
@@ -74,7 +89,7 @@ final readonly class VisibilityCli
     private function usage(string $message): string
     {
         return $message . PHP_EOL
-            . 'Usage: visibility analyze <scenario-json-path>' . PHP_EOL;
+            . 'Usage: visibility analyze <scenario-json-path> [--compact]' . PHP_EOL;
     }
 
     /**
