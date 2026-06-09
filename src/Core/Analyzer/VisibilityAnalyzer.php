@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use VisibilityDetector\Core\Detector\CanonicalDetector;
 use VisibilityDetector\Core\Detector\ContentAlignmentDetector;
 use VisibilityDetector\Core\Detector\DetectionContext;
+use VisibilityDetector\Core\Detector\HttpAvailabilityDetector;
 use VisibilityDetector\Core\Detector\IndexabilityDetector;
 use VisibilityDetector\Core\Detector\MetadataDetector;
 use VisibilityDetector\Core\Detector\StructuredDataDetector;
@@ -35,6 +36,7 @@ final readonly class VisibilityAnalyzer
         private ?PageFetcher $pageFetcher = null,
         private ?PageParser $pageParser = null,
         private IndexabilityDetector $indexabilityDetector = new IndexabilityDetector(),
+        private HttpAvailabilityDetector $httpAvailabilityDetector = new HttpAvailabilityDetector(),
         private MetadataDetector $metadataDetector = new MetadataDetector(),
         private CanonicalDetector $canonicalDetector = new CanonicalDetector(),
         private StructuredDataDetector $structuredDataDetector = new StructuredDataDetector(),
@@ -129,6 +131,9 @@ final readonly class VisibilityAnalyzer
 
             $queryVisibility = $this->visibilityResultDetector->queryVisibility($context);
             $detectorFindings = [];
+            if ($pageSnapshot instanceof PageSnapshot) {
+                $detectorFindings = array_merge($detectorFindings, $this->httpAvailabilityDetector->detect($context));
+            }
 
             if ($pageSnapshot instanceof PageSnapshot || $parsedPage instanceof ParsedPage) {
                 $detectorFindings = array_merge($detectorFindings, $this->indexabilityDetector->detect($context));

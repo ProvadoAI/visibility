@@ -119,6 +119,32 @@ final class ScenarioCliTest extends TestCase
         self::assertStringContainsString('page.noindex_meta', $stdout);
     }
 
+
+    public function test_http_error_scenario_emits_expected_finding_code(): void
+    {
+        $this->assertScenarioEmitsFindingCode('examples/scenarios/visible-http-error.json', 'page.http_error');
+    }
+
+    public function test_redirect_elsewhere_scenario_emits_expected_finding_code(): void
+    {
+        $this->assertScenarioEmitsFindingCode('examples/scenarios/visible-redirects-elsewhere.json', 'page.redirects_elsewhere');
+    }
+
+    public function test_x_robots_noindex_scenario_emits_expected_finding_code(): void
+    {
+        $this->assertScenarioEmitsFindingCode('examples/scenarios/visible-x-robots-noindex.json', 'page.noindex_x_robots');
+    }
+
+    private function assertScenarioEmitsFindingCode(string $scenarioPath, string $expectedCode): void
+    {
+        [$exitCode, $stdout, $stderr] = $this->runCli(['visibility', 'analyze', $this->projectRoot() . '/' . $scenarioPath]);
+
+        self::assertSame(0, $exitCode);
+        self::assertSame('', $stderr);
+        self::assertJson($stdout);
+        self::assertStringContainsString($expectedCode, $stdout);
+    }
+
     /**
      * @param array<int, string> $argv
      * @return array{0: int, 1: string, 2: string}

@@ -137,6 +137,7 @@ final readonly class QueryVisibility
             'page.parse_skipped',
             'page.http_status_not_ok',
             'page.http_error',
+            'page.redirects_elsewhere',
             'page.non_html_content',
             'page.non_html_response',
         ], true);

@@ -1,0 +1,48 @@
+{
+    "product": {
+        "expectedUrl": "https://example.test/products/aurora-trail-shoe",
+        "id": "demo-aurora-trail-shoe",
+        "name": "Aurora Trail Shoe",
+        "brand": "Acme Outdoor",
+        "category": "Trail running shoes",
+        "acceptableUrlVariants": [],
+        "expectedTerms": [
+            "Aurora Trail Shoe",
+            "Acme Outdoor",
+            "waterproof trail running shoes"
+        ],
+        "commercialPriority": "critical",
+        "commercialValue": "launch_product_high_margin",
+        "price": 149,
+        "currency": "USD",
+        "stockStatus": "in_stock"
+    },
+    "queries": [
+        {
+            "text": "acme waterproof trail running shoes",
+            "provider": "static-fixture",
+            "locale": "en_US",
+            "device": "desktop",
+            "intent": "category_product",
+            "expectedVisibility": true,
+            "priority": "critical",
+            "reason": "High-value launch product should appear for branded category demand."
+        }
+    ],
+    "searchResultFixtures": [
+        "examples/fixtures/search-results-visible-exact.json"
+    ],
+    "pageFixtures": [
+        {
+            "requestedUrl": "https://example.test/products/aurora-trail-shoe",
+            "finalUrl": "https://example.test/products/aurora-trail-shoe",
+            "htmlFixture": "examples/fixtures/product-page-clean.html",
+            "statusCode": 200,
+            "contentType": "text/html; charset=utf-8",
+            "headers": {
+                "content-type": ["text/html; charset=utf-8"],
+                "x-robots-tag": ["noindex"]
+            }
+        }
+    ]
+}
