@@ -115,7 +115,15 @@ When installed as a dependency through Composer, run the Composer-exposed bin:
 vendor/bin/visibility analyze <scenario-json-path>
 ```
 
-The command prints the existing `JsonReportSerializer` JSON report format to stdout. Errors, such as an unknown command, invalid JSON, or a missing fixture file, are written to stderr and return a non-zero exit code.
+Full JSON output remains the default. Without additional flags, the command prints the existing `JsonReportSerializer` JSON report format to stdout, including full report evidence such as `pageSnapshot` and `parsedPage` sections.
+
+For terminal demos or quick inspection, pass `--compact` to print deterministic compact JSON with only product identity, overall status and priority, query statuses, query `visibilityHealth`, top probable causes, top recommended actions, URL evidence summary, and warnings:
+
+```sh
+bin/visibility analyze examples/scenarios/visible-clean.json --compact
+```
+
+Compact JSON omits full `pageSnapshot.body`, large parsed page internals, and large nested evidence payloads. Errors, such as an unknown command, invalid JSON, or a missing fixture file, are written to stderr and return a non-zero exit code.
 
 The CLI is intentionally local-only: it does not call search engines, fetch live pages, run browser rendering, crawl sites, use Laravel, or invoke external services. Search-result evidence comes from scenario inline data or local JSON fixtures, and page evidence comes from local HTML fixtures loaded into the existing `FixturePageFetcher` abstraction.
 

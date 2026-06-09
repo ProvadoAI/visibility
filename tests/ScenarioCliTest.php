@@ -82,7 +82,7 @@ final class ScenarioCliTest extends TestCase
         self::assertSame(1, $exitCode);
         self::assertSame('', $stdout);
         self::assertStringContainsString('Unknown command: inspect', $stderr);
-        self::assertStringContainsString('Usage: visibility analyze <scenario-json-path>', $stderr);
+        self::assertStringContainsString('Usage: visibility analyze <scenario-json-path> [--compact]', $stderr);
     }
 
     public function test_output_is_existing_json_report_format(): void
@@ -100,7 +100,51 @@ final class ScenarioCliTest extends TestCase
         self::assertArrayHasKey('pageSnapshot', $payload);
         self::assertArrayHasKey('parsedPage', $payload);
         self::assertArrayHasKey('summary', $payload);
+        self::assertArrayHasKey('body', $payload['pageSnapshot']);
+        self::assertArrayHasKey('jsonLdBlocks', $payload['parsedPage']);
         self::assertSame('not_visible', $payload['queryVisibilities'][0]['status']);
+    }
+
+
+    public function test_compact_output_contains_key_diagnostics_and_omits_large_evidence(): void
+    {
+        [$exitCode, $stdout, $stderr] = $this->runCli(['visibility', 'analyze', $this->projectRoot() . '/examples/scenarios/visible-clean.json', '--compact']);
+
+        self::assertSame(0, $exitCode);
+        self::assertSame('', $stderr);
+        self::assertJson($stdout);
+
+        $payload = json_decode($stdout, true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame('https://example.test/products/aurora-trail-shoe', $payload['product']['expectedUrl']);
+        self::assertSame('Aurora Trail Shoe', $payload['product']['name']);
+        self::assertSame('visible', $payload['overallStatus']);
+        self::assertSame('low', $payload['overallPriority']);
+        self::assertSame('acme waterproof trail running shoes', $payload['queries'][0]['query']['text']);
+        self::assertSame('visible', $payload['queries'][0]['status']);
+        self::assertSame('healthy', $payload['queries'][0]['visibilityHealth']);
+        self::assertSame('https://example.test/products/aurora-trail-shoe', $payload['urlEvidence']['expectedUrl']);
+        self::assertSame(['https://example.test/products/aurora-trail-shoe'], $payload['urlEvidence']['matchedUrls']);
+        self::assertArrayHasKey('topProbableCauses', $payload);
+        self::assertArrayHasKey('topRecommendedActions', $payload);
+        self::assertArrayHasKey('warnings', $payload);
+        self::assertArrayNotHasKey('pageSnapshot', $payload);
+        self::assertArrayNotHasKey('parsedPage', $payload);
+        self::assertArrayNotHasKey('queryVisibilities', $payload);
+        self::assertStringNotContainsString('pageSnapshot', $stdout);
+        self::assertStringNotContainsString('bodyTextSummary', $stdout);
+        self::assertStringNotContainsString('jsonLdBlocks', $stdout);
+        self::assertStringNotContainsString('<html', $stdout);
+    }
+
+    public function test_unknown_compact_option_returns_usage_error(): void
+    {
+        [$exitCode, $stdout, $stderr] = $this->runCli(['visibility', 'analyze', $this->projectRoot() . '/examples/scenarios/visible-clean.json', '--verbose']);
+
+        self::assertSame(1, $exitCode);
+        self::assertSame('', $stdout);
+        self::assertStringContainsString('Unknown option: --verbose', $stderr);
+        self::assertStringContainsString('Usage: visibility analyze <scenario-json-path> [--compact]', $stderr);
     }
 
     public function test_cli_uses_only_static_scenario_evidence_without_external_services(): void
