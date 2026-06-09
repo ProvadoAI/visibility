@@ -98,3 +98,71 @@ The main output sections are:
 - [MVP definition](docs/mvp.md)
 - [Architecture](docs/architecture.md)
 - [v0.1 roadmap](docs/roadmap/v0.1.md)
+## Minimal scenario CLI
+
+The repository also includes a small plain-PHP developer CLI for running deterministic local scenario JSON files without creating a new PHP script for each scenario.
+
+After installing dependencies in your own environment, Composer exposes the bin entry as:
+
+```sh
+vendor/bin/visibility analyze examples/scenarios/not-visible.json
+```
+
+The command prints the existing `JsonReportSerializer` JSON report format to stdout. Errors, such as an unknown command, invalid JSON, or a missing fixture file, are written to stderr and return a non-zero exit code.
+
+The CLI is intentionally local-only: it does not call search engines, fetch live pages, run browser rendering, crawl sites, use Laravel, or invoke external services. Search-result evidence comes from scenario inline data or local JSON fixtures, and page evidence comes from local HTML fixtures loaded into the existing `FixturePageFetcher` abstraction.
+
+### Scenario JSON format
+
+A scenario file is explicit and one-product scoped. It defines:
+
+- `product`: a `ProductSubject` payload, including `expectedUrl` and optional fields such as `name`, `brand`, `acceptableUrlVariants`, and commercial context.
+- `queries`: one or more `SearchQuery` payloads for that single product.
+- `searchResultFixtures`: optional local JSON fixture paths containing one `SearchResultSet` object or an array of result-set objects.
+- `searchResults`: optional inline `SearchResultSet` objects when a scenario should keep search evidence in the scenario file.
+- `pageFixtures`: local page fixture definitions. Each entry supplies the requested/final URL, status metadata, and either `htmlFixture` for a local HTML file or an inline `body` value.
+
+Relative fixture paths are resolved predictably from the scenario file location first, then from the repository root/current working directory. The examples use repository-root-relative fixture paths such as `examples/fixtures/product-page-clean.html`.
+
+```json
+{
+  "product": {
+    "expectedUrl": "https://example.test/products/aurora-trail-shoe",
+    "name": "Aurora Trail Shoe",
+    "brand": "Acme Outdoor",
+    "acceptableUrlVariants": []
+  },
+  "queries": [
+    {
+      "text": "acme waterproof trail running shoes",
+      "provider": "static-fixture",
+      "expectedVisibility": true,
+      "priority": "critical"
+    }
+  ],
+  "searchResultFixtures": [
+    "examples/fixtures/search-results.json"
+  ],
+  "pageFixtures": [
+    {
+      "requestedUrl": "https://example.test/products/aurora-trail-shoe",
+      "finalUrl": "https://example.test/products/aurora-trail-shoe",
+      "htmlFixture": "examples/fixtures/product-page-clean.html",
+      "statusCode": 200,
+      "contentType": "text/html; charset=utf-8"
+    }
+  ]
+}
+```
+
+### Included scenarios
+
+The local deterministic scenarios under `examples/scenarios/` are:
+
+- `not-visible.json`: uses `examples/fixtures/search-results.json`, where the expected product URL is absent.
+- `visible-clean.json`: uses inline visible search-result evidence and `product-page-clean.html`.
+- `visible-noindex.json`: uses inline visible search-result evidence and `product-page-noindex.html`.
+- `visible-canonical-mismatch.json`: uses inline visible search-result evidence and `product-page-canonical-mismatch.html`.
+- `visible-missing-schema.json`: uses inline visible search-result evidence and `product-page-missing-schema.html`.
+
+Existing PHP example scripts, including `examples/basic-analysis.php` and `examples/run-analysis.php`, remain available for compatibility.

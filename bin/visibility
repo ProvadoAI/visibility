@@ -1,0 +1,11 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use VisibilityDetector\Cli\ScenarioLoader;
+use VisibilityDetector\Cli\VisibilityCli;
+
+require_once __DIR__ . '/../vendor/autoload.php';
+
+exit((new VisibilityCli(new ScenarioLoader(dirname(__DIR__))))->run($argv));
