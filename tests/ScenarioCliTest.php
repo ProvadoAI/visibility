@@ -119,7 +119,6 @@ final class ScenarioCliTest extends TestCase
         self::assertStringContainsString('page.noindex_meta', $stdout);
     }
 
-
     public function test_http_error_scenario_emits_expected_finding_code(): void
     {
         $this->assertScenarioEmitsFindingCode('examples/scenarios/visible-http-error.json', 'page.http_error');
@@ -135,14 +134,59 @@ final class ScenarioCliTest extends TestCase
         $this->assertScenarioEmitsFindingCode('examples/scenarios/visible-x-robots-noindex.json', 'page.noindex_x_robots');
     }
 
+    public function test_canonical_homepage_scenario_emits_expected_finding_code(): void
+    {
+        $this->assertScenarioEmitsFindingCode('examples/scenarios/visible-canonical-homepage.json', 'canonical.points_to_homepage');
+    }
+
+    public function test_schema_offer_missing_scenario_emits_expected_finding_code(): void
+    {
+        $this->assertScenarioEmitsFindingCode('examples/scenarios/visible-schema-offer-missing.json', 'schema.offer_missing');
+    }
+
+    public function test_schema_price_missing_scenario_emits_expected_finding_code(): void
+    {
+        $this->assertScenarioEmitsFindingCode('examples/scenarios/visible-schema-price-missing.json', 'schema.price_missing');
+    }
+
+    public function test_schema_currency_missing_scenario_emits_expected_finding_code(): void
+    {
+        $this->assertScenarioEmitsFindingCode('examples/scenarios/visible-schema-currency-missing.json', 'schema.currency_missing');
+    }
+
+    public function test_schema_availability_missing_scenario_emits_expected_finding_code(): void
+    {
+        $this->assertScenarioEmitsFindingCode('examples/scenarios/visible-schema-availability-missing.json', 'schema.availability_missing');
+    }
+
+    public function test_weak_content_alignment_scenario_emits_expected_finding_codes(): void
+    {
+        $this->assertScenarioEmitsFindingCodes('examples/scenarios/visible-weak-content-alignment.json', [
+            'content.title_missing_product_terms',
+            'content.h1_missing_product_terms',
+            'content.body_missing_product_terms',
+        ]);
+    }
+
     private function assertScenarioEmitsFindingCode(string $scenarioPath, string $expectedCode): void
+    {
+        $this->assertScenarioEmitsFindingCodes($scenarioPath, [$expectedCode]);
+    }
+
+    /**
+     * @param array<int, string> $expectedCodes
+     */
+    private function assertScenarioEmitsFindingCodes(string $scenarioPath, array $expectedCodes): void
     {
         [$exitCode, $stdout, $stderr] = $this->runCli(['visibility', 'analyze', $this->projectRoot() . '/' . $scenarioPath]);
 
         self::assertSame(0, $exitCode);
         self::assertSame('', $stderr);
         self::assertJson($stdout);
-        self::assertStringContainsString($expectedCode, $stdout);
+
+        foreach ($expectedCodes as $expectedCode) {
+            self::assertStringContainsString($expectedCode, $stdout);
+        }
     }
 
     /**
