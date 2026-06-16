@@ -18,6 +18,19 @@ This is a backlog, not a commitment. Items here are candidates for future versio
 - When a version implements a deferred item, move it to "Recently unlocked" with the version that delivered it.
 - Keep the per-version roadmap `non-goals` sections pointing here rather than duplicating rationale.
 
+## Review cadence
+
+This document is reviewed as part of **closing out each version** — it is a gate in the
+version's completion definition, not an afterthought. When a version reaches `Validated`,
+before planning the next one:
+
+1. Move anything the version delivered into "Recently unlocked", tagged with that version.
+2. Update the "Current version context" line.
+3. Re-check every remaining item's **unlock condition** — a just-shipped version often
+   satisfies a prerequisite (e.g. v0.4's HTTP plumbing unlocks live search acquisition).
+4. Add any new capability the version deliberately pushed out of scope.
+5. Promote the strongest now-unblocked candidate as the proposed theme for the next version.
+
 ## Status legend
 
 - `Deferred` — intentionally out of scope for now; a candidate for a future version.

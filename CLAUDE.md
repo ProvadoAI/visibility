@@ -19,8 +19,9 @@ coupling, no ecommerce-platform coupling.
 - `docs/architecture.md` — value objects, contracts, detectors, extension seams.
 - `docs/roadmap/v0.x.md` — phased implementation roadmaps and live progress status.
 - `docs/deferred.md` — the backlog of explicitly deferred capabilities, with the
-  reason each is deferred and the condition that would unlock it. Update this when a
-  version defers or ships a capability.
+  reason each is deferred and the condition that would unlock it. Reviewing it is a
+  gate when closing out each version (see its "Review cadence" section): move shipped
+  items to "Recently unlocked", re-check unlock conditions, and propose the next theme.
 
 ## Commit / PR workflow
 
