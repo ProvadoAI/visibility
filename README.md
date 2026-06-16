@@ -201,3 +201,54 @@ The local deterministic scenarios under `examples/scenarios/` are:
 - `visible-missing-schema.json`: uses inline visible search-result evidence and `product-page-missing-schema.html`.
 
 Existing PHP example scripts, including `examples/basic-analysis.php` and `examples/run-analysis.php`, remain available for compatibility.
+
+## Live HTTP page fetching (opt-in)
+
+By default the analyzer reads page evidence from fixtures and performs **no
+network calls**. v0.4 adds an optional `VisibilityDetector\Adapters\Http\Psr18PageFetcher`
+that can fetch the expected product page over real HTTP, behind the same
+`PageFetcher` interface. It depends on PSR HTTP **abstractions only**
+(`psr/http-client`, `psr/http-factory`, `psr/http-message`); you inject any
+concrete PSR-18 client and PSR-17 factories:
+
+```php
+use VisibilityDetector\Adapters\Http\FetchPolicy;
+use VisibilityDetector\Adapters\Http\Psr18PageFetcher;
+
+$fetcher = new Psr18PageFetcher(
+    client: $yourPsr18Client,        // e.g. Guzzle, Symfony HttpClient
+    requestFactory: $yourPsr17Factory,
+    uriFactory: $yourPsr17Factory,
+    policy: FetchPolicy::default(),   // safe defaults; see below
+);
+```
+
+### Fetch safety policy (`FetchPolicy`)
+
+Live fetching is bounded and gated by a deterministic `FetchPolicy`. Exceeding a
+bound never throws — it produces a controlled `PageSnapshot` with a warning
+and/or an appropriate `failureType`. The defaults are conservative:
+
+| Setting | Default | Behaviour when exceeded |
+| --- | --- | --- |
+| `timeoutSeconds` | `10.0` | Apply this to your PSR-18 client to bound each request (a client timeout is mapped to `failureType = timeout`). The fetcher also enforces it as a wall-clock budget *between* redirect hops. |
+| `connectTimeoutSeconds` | `5.0` | Advisory — apply it to your PSR-18 client (PSR-18 has no transport-config hook). |
+| `maxRedirects` | `5` | Redirects beyond the cap are not followed; the partial result is returned with a warning. |
+| `maxBodyBytes` | `5_242_880` (5 MiB) | Larger bodies are truncated to the limit with a warning. |
+| `userAgent` | `visibility-detector/0.4` | Sent on every request. |
+| `allowedHosts` | `[]` (any host) | A host not on a non-empty allowlist is refused before any request (`failureType = blocked`). |
+| `deniedHosts` | `[]` | A host on the denylist is refused before any request (`failureType = blocked`), taking precedence over the allowlist. |
+
+Override any subset, for example to restrict fetching to a single host:
+
+```php
+$policy = new FetchPolicy(
+    timeoutSeconds: 8.0,
+    maxRedirects: 3,
+    allowedHosts: ['example.test'],
+);
+```
+
+This fetcher only requests the expected URL (plus its redirects). It does not
+crawl the site or follow page links. The default, fixture-backed analysis path
+remains fully deterministic and network-free.
