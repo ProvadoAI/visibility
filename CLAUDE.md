@@ -1,38 +1,18 @@
-# CLAUDE.md
+# Visibility — working agreements
 
-Guidance for Claude Code when working in this repository.
+## Git / PR workflow
 
-## Project
+- **Docs changes (e.g. `docs/ROADMAP.md`, other `docs/**`, markdown):** commit, push,
+  open a PR, and merge it without waiting for review.
+- **Source code changes (e.g. `src/**`, `tests/**`):** open a PR and stop there for
+  human review. Do NOT merge until explicitly approved.
+- **Before opening any source-code PR:** run a `/code-review` pass on the diff and
+  summarize the findings in the PR description (note anything fixed vs. left open).
+  This is a default — do it without being asked.
 
-`visibility-detector` — a deterministic, framework-agnostic PHP core that diagnoses
-ecommerce **product visibility**: for a given product and a given buyer search, did
-the product appear, and if not, what evidence-backed technical reasons explain why.
+## Local environment
 
-It is a diagnostic engine, not a SaaS/dashboard/crawler. Key principles (see
-`docs/architecture.md`): deterministic-first, evidence over opinions, no acquisition
-coupling, no ecommerce-platform coupling.
-
-## Source of truth
-
-- `docs/project-objective.md` — product vision.
-- `docs/mvp.md` — MVP definition and success criteria.
-- `docs/architecture.md` — value objects, contracts, detectors, extension seams.
-- `docs/roadmap/v0.x.md` — phased implementation roadmaps and live progress status.
-- `docs/deferred.md` — the backlog of explicitly deferred capabilities, with the
-  reason each is deferred and the condition that would unlock it. Reviewing it is a
-  gate when closing out each version (see its "Review cadence" section): move shipped
-  items to "Recently unlocked", re-check unlock conditions, and propose the next theme.
-
-## Commit / PR workflow
-
-- **Documentation changes** (`docs/**`, `*.md`, `CLAUDE.md`): commit directly to
-  `main`. No PR, no need to ask first.
-- **Code changes** (anything else — `src/`, `tests/`, `bin/`, `composer.json`,
-  fixtures, scenarios): open a pull request and leave it for the owner to review and
-  merge. Do not merge code PRs yourself. The owner pulls, tests, and reports back.
-
-## Testing
-
-- Run the suite with `composer test` (or `vendor/bin/phpunit`).
-- The test suite must stay deterministic and network-free. Live/HTTP behavior is
-  opt-in and must be tested with mock clients, never real network calls.
+- **Do NOT install dependencies (`composer install`/`require`) or run the test
+  suite in the working environment.** The deliverable is the code and the PR;
+  the human handles dependency installation and test runs. The `/code-review`
+  pass is still required — it reads the diff statically and needs no install.
