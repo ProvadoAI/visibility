@@ -32,7 +32,7 @@ final readonly class PageSnapshot
             throw new InvalidArgumentException('durationMs must be greater than or equal to 0.');
         }
 
-        if ($failureType !== null && !in_array($failureType, ['none', 'dns_not_found', 'timeout', 'connection_refused', 'ssl_error', 'http_error', 'invalid_response', 'unknown'], true)) {
+        if ($failureType !== null && !in_array($failureType, ['none', 'dns_not_found', 'timeout', 'connection_refused', 'ssl_error', 'http_error', 'invalid_response', 'blocked', 'unknown'], true)) {
             throw new InvalidArgumentException('failureType is invalid.');
         }
     }

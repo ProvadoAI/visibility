@@ -188,6 +188,7 @@ Possible `failureType` values:
 - `ssl_error`
 - `http_error`
 - `invalid_response`
+- `blocked` (added in v0.4 Phase 2: the request was refused by the live-fetch `FetchPolicy` — e.g. a host allowlist/denylist check — so no network call was made)
 - `unknown`
 
 ### ParsedPage

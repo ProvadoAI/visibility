@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace VisibilityDetector\Adapters\Http;
 
+use Closure;
 use InvalidArgumentException;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
@@ -11,7 +12,9 @@ use Psr\Http\Client\NetworkExceptionInterface;
 use Psr\Http\Client\RequestExceptionInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UriFactoryInterface;
+use Throwable;
 use VisibilityDetector\Core\Page\PageFetcher;
 use VisibilityDetector\Core\Page\PageSnapshot;
 
@@ -24,29 +27,38 @@ use VisibilityDetector\Core\Page\PageSnapshot;
  * outcome — failures are mapped onto the PageSnapshot failureType taxonomy so the
  * detectors can interpret them.
  *
- * Redirects are followed manually (not delegated to the client) so the chain is
- * captured deterministically and stays bounded. Phase 2 moves the redirect cap,
- * timeouts, body-size limit, User-Agent, and host gating into a FetchPolicy.
+ * Live fetching is bounded and gated by a deterministic {@see FetchPolicy}:
+ * a redirect cap, a maximum body size, a configurable User-Agent, an optional
+ * host allow/deny list, and a wall-clock time budget enforced *between* requests
+ * (an in-flight request is bounded by the client's own timeout, surfaced as a
+ * network exception mapped to `timeout`). Exceeding a bound produces a controlled
+ * PageSnapshot (warnings and/or an appropriate failureType), never an uncaught
+ * exception. Redirects are followed manually (not delegated to the client) so the
+ * chain is captured deterministically and stays bounded.
  */
 final readonly class Psr18PageFetcher implements PageFetcher
 {
-    private const DEFAULT_USER_AGENT = 'visibility-detector/0.4';
-
     private const DEFAULT_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
-
-    /**
-     * Default bound on redirects followed. Phase 2 makes this configurable via
-     * FetchPolicy; a default is enforced here to avoid unbounded redirect loops.
-     */
-    private const DEFAULT_MAX_REDIRECTS = 5;
 
     private const REDIRECT_STATUS_CODES = [301, 302, 303, 307, 308];
 
+    private const BODY_READ_CHUNK_BYTES = 8192;
+
+    private Closure $clock;
+
+    /**
+     * @param callable():float|null $clock Returns the current time in seconds (for the time budget). Defaults to microtime(true).
+     */
     public function __construct(
         private ClientInterface $client,
         private RequestFactoryInterface $requestFactory,
         private UriFactoryInterface $uriFactory,
+        private FetchPolicy $policy = new FetchPolicy(),
+        ?callable $clock = null,
     ) {
+        $this->clock = $clock !== null
+            ? Closure::fromCallable($clock)
+            : static fn (): float => microtime(true);
     }
 
     public function fetch(string $url): PageSnapshot
@@ -55,7 +67,7 @@ final readonly class Psr18PageFetcher implements PageFetcher
             throw new InvalidArgumentException('url must not be empty.');
         }
 
-        $startedAt = microtime(true);
+        $startedAt = ($this->clock)();
         $requestedUrl = $url;
         $currentUrl = $url;
         $redirects = [];
@@ -63,10 +75,38 @@ final readonly class Psr18PageFetcher implements PageFetcher
         $redirectCount = 0;
 
         while (true) {
+            $host = $this->hostOf($currentUrl);
+
+            if ($host === '') {
+                return $this->failureSnapshot(
+                    requestedUrl: $requestedUrl,
+                    redirects: $redirects,
+                    durationMs: $this->durationMs($startedAt),
+                    failureType: 'invalid_response',
+                    warnings: $warnings,
+                    message: sprintf('Could not determine a host for URL: %s', $currentUrl),
+                );
+            }
+
+            if (!$this->policy->isHostAllowed($host)) {
+                return $this->blockedSnapshot($requestedUrl, $currentUrl, $redirects, $this->durationMs($startedAt), $host);
+            }
+
+            if ($this->elapsedSeconds($startedAt) >= $this->policy->timeoutSeconds) {
+                return $this->failureSnapshot(
+                    requestedUrl: $requestedUrl,
+                    redirects: $redirects,
+                    durationMs: $this->durationMs($startedAt),
+                    failureType: 'timeout',
+                    warnings: $warnings,
+                    message: sprintf('Total fetch time budget of %ss exceeded before requesting %s.', $this->policy->timeoutSeconds, $currentUrl),
+                );
+            }
+
             try {
                 $request = $this->requestFactory
                     ->createRequest('GET', $this->uriFactory->createUri($currentUrl))
-                    ->withHeader('User-Agent', self::DEFAULT_USER_AGENT)
+                    ->withHeader('User-Agent', $this->policy->userAgent)
                     ->withHeader('Accept', self::DEFAULT_ACCEPT);
 
                 $response = $this->client->sendRequest($request);
@@ -85,10 +125,10 @@ final readonly class Psr18PageFetcher implements PageFetcher
             $location = trim($response->getHeaderLine('Location'));
 
             if ($this->isRedirect($statusCode) && $location !== '') {
-                if ($redirectCount >= self::DEFAULT_MAX_REDIRECTS) {
+                if ($redirectCount >= $this->policy->maxRedirects) {
                     $warnings[] = sprintf(
                         'Maximum redirect count (%d) reached; stopped following redirects at %s.',
-                        self::DEFAULT_MAX_REDIRECTS,
+                        $this->policy->maxRedirects,
                         $currentUrl,
                     );
 
@@ -118,14 +158,29 @@ final readonly class Psr18PageFetcher implements PageFetcher
     private function responseSnapshot(string $requestedUrl, string $finalUrl, ResponseInterface $response, array $redirects, int $durationMs, array $warnings): PageSnapshot
     {
         $contentType = trim($response->getHeaderLine('Content-Type'));
-        $body = (string) $response->getBody();
+
+        try {
+            $body = $this->readBoundedBody($response->getBody(), $warnings);
+        } catch (Throwable $exception) {
+            // PSR-7 streams may throw while reading the body (e.g. a connection
+            // reset mid-transfer). Capture it as transport evidence rather than
+            // letting it escape fetch().
+            return $this->failureSnapshot(
+                requestedUrl: $requestedUrl,
+                redirects: $redirects,
+                durationMs: $durationMs,
+                failureType: 'invalid_response',
+                warnings: $warnings,
+                message: 'Failed to read response body: ' . $exception->getMessage(),
+            );
+        }
 
         return new PageSnapshot(
             requestedUrl: $requestedUrl,
             finalUrl: $finalUrl,
             statusCode: $response->getStatusCode(),
             headers: $this->normalizeHeaders($response->getHeaders()),
-            body: $body === '' ? null : $body,
+            body: $body,
             contentType: $contentType === '' ? null : $contentType,
             redirects: $redirects,
             durationMs: $durationMs,
@@ -156,6 +211,63 @@ final readonly class Psr18PageFetcher implements PageFetcher
             failureType: $failureType,
             warnings: array_values($warnings),
         );
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $redirects
+     */
+    private function blockedSnapshot(string $requestedUrl, string $refusedUrl, array $redirects, int $durationMs, string $host): PageSnapshot
+    {
+        return new PageSnapshot(
+            requestedUrl: $requestedUrl,
+            finalUrl: null,
+            statusCode: null,
+            headers: [],
+            body: null,
+            contentType: null,
+            redirects: $redirects,
+            durationMs: $durationMs,
+            failureType: 'blocked',
+            warnings: [sprintf(
+                'Host "%s" was refused by the fetch policy; no request was made to %s.',
+                $host,
+                $refusedUrl,
+            )],
+        );
+    }
+
+    /**
+     * Read at most maxBodyBytes from the response body, recording a warning when
+     * the body is larger and gets truncated.
+     *
+     * @param array<int, string> $warnings
+     */
+    private function readBoundedBody(StreamInterface $stream, array &$warnings): ?string
+    {
+        $maxBytes = $this->policy->maxBodyBytes;
+
+        if ($stream->isSeekable()) {
+            $stream->rewind();
+        }
+
+        $buffer = '';
+
+        while (!$stream->eof() && strlen($buffer) <= $maxBytes) {
+            $chunk = $stream->read(self::BODY_READ_CHUNK_BYTES);
+
+            if ($chunk === '') {
+                break;
+            }
+
+            $buffer .= $chunk;
+        }
+
+        if (strlen($buffer) > $maxBytes) {
+            $buffer = substr($buffer, 0, $maxBytes);
+            $warnings[] = sprintf('Response body exceeded the maximum of %d bytes and was truncated.', $maxBytes);
+        }
+
+        return $buffer === '' ? null : $buffer;
     }
 
     /**
@@ -210,6 +322,13 @@ final readonly class Psr18PageFetcher implements PageFetcher
         return in_array($statusCode, self::REDIRECT_STATUS_CODES, true);
     }
 
+    private function hostOf(string $url): string
+    {
+        $host = parse_url($url, PHP_URL_HOST);
+
+        return is_string($host) ? $host : '';
+    }
+
     private function resolveLocation(string $base, string $location): string
     {
         $parts = parse_url($location);
@@ -251,8 +370,13 @@ final readonly class Psr18PageFetcher implements PageFetcher
         return $authority . $directory . $location;
     }
 
+    private function elapsedSeconds(float $startedAt): float
+    {
+        return ($this->clock)() - $startedAt;
+    }
+
     private function durationMs(float $startedAt): int
     {
-        return max(0, (int) round((microtime(true) - $startedAt) * 1000));
+        return max(0, (int) round($this->elapsedSeconds($startedAt) * 1000));
     }
 }
