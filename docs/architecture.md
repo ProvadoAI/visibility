@@ -411,8 +411,9 @@ For v0.1 compatibility with Phase 8, page/indexability diagnostics use the stabl
 - `page.robots_none`
 - `page.unavailable_after_expired`
 - `page.unavailable_after_invalid`
+- `page.robots_disallowed` (added in v0.4 Phase 4: the expected URL is disallowed by `robots.txt` for the configured user agent. This is distinct from `page.robots_none`, which is the meta-robots `none` directive — no existing code covered a `robots.txt` Disallow, so a new code was added.)
 
-For v0.1, robots.txt support may be fixture-driven or deferred to a separate task, but the detector code should leave room for robots evidence.
+For v0.1, robots.txt support may be fixture-driven or deferred to a separate task, but the detector code should leave room for robots evidence. v0.4 Phase 4 wires real `robots.txt` evidence in through `DetectionContext::$robotsEvidence`.
 
 ### CanonicalDetector
 

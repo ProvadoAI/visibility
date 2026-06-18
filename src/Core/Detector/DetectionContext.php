@@ -7,6 +7,7 @@ namespace VisibilityDetector\Core\Detector;
 use VisibilityDetector\Core\Page\PageSnapshot;
 use VisibilityDetector\Core\Page\ParsedPage;
 use VisibilityDetector\Core\Product\ProductSubject;
+use VisibilityDetector\Core\Robots\RobotsEvidence;
 use VisibilityDetector\Core\Search\SearchQuery;
 use VisibilityDetector\Core\Search\SearchResultSet;
 use VisibilityDetector\Core\Url\UrlMatch;
@@ -20,6 +21,7 @@ final readonly class DetectionContext
         public UrlMatch $urlMatch,
         public ?PageSnapshot $pageSnapshot = null,
         public ?ParsedPage $parsedPage = null,
+        public ?RobotsEvidence $robotsEvidence = null,
     ) {
     }
 
@@ -32,6 +34,7 @@ final readonly class DetectionContext
             'urlMatch' => $this->urlMatch->toArray(),
             'pageSnapshot' => $this->pageSnapshot?->toArray(),
             'parsedPage' => $this->parsedPage?->toArray(),
+            'robotsEvidence' => $this->robotsEvidence?->toArray(),
         ];
     }
 }

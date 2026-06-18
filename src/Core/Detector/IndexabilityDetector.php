@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use VisibilityDetector\Core\Page\ParsedPage;
 use VisibilityDetector\Core\Report\Finding;
+use VisibilityDetector\Core\Robots\RobotsEvidence;
 use VisibilityDetector\Core\Url\UrlNormalizer;
 
 final readonly class IndexabilityDetector implements Detector
@@ -27,7 +28,13 @@ final readonly class IndexabilityDetector implements Detector
      */
     public function detect(DetectionContext $context): array
     {
+        $robotsFindings = $this->robotsFindings($context);
+
         if ($context->pageSnapshot === null && $context->parsedPage === null) {
+            if ($robotsFindings !== []) {
+                return $robotsFindings;
+            }
+
             return [new Finding(
                 code: 'page.indexability_uncertain',
                 severity: 'medium',
@@ -39,10 +46,31 @@ final readonly class IndexabilityDetector implements Detector
         }
 
         if ($context->parsedPage === null) {
+            return $robotsFindings;
+        }
+
+        return array_merge($robotsFindings, $this->parsedPageFindings($context));
+    }
+
+    /**
+     * @return array<int, Finding>
+     */
+    private function robotsFindings(DetectionContext $context): array
+    {
+        $evidence = $context->robotsEvidence;
+
+        if (!$evidence instanceof RobotsEvidence || $evidence->allowed) {
             return [];
         }
 
-        return $this->parsedPageFindings($context);
+        return [new Finding(
+            code: 'page.robots_disallowed',
+            severity: 'high',
+            confidence: 0.9,
+            message: 'robots.txt disallows crawling the expected product URL for the configured user agent.',
+            evidence: $this->baseEvidence($context) + ['robots' => $evidence->toArray()],
+            recommendation: 'Allow the product URL in robots.txt (or narrow the matching Disallow rule) so search-engine crawlers can access it.',
+        )];
     }
 
     /**

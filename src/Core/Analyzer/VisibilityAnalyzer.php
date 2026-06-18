@@ -22,6 +22,8 @@ use VisibilityDetector\Core\Report\Finding;
 use VisibilityDetector\Core\Report\QueryVisibility;
 use VisibilityDetector\Core\Report\ReportSummarizer;
 use VisibilityDetector\Core\Report\VisibilityReport;
+use VisibilityDetector\Core\Robots\RobotsEvidence;
+use VisibilityDetector\Core\Robots\RobotsEvidenceProvider;
 use VisibilityDetector\Core\Search\SearchProvider;
 use VisibilityDetector\Core\Search\SearchQuery;
 use VisibilityDetector\Core\Search\SearchResultSet;
@@ -35,6 +37,7 @@ final readonly class VisibilityAnalyzer
         private VisibilityResultDetector $visibilityResultDetector,
         private ?PageFetcher $pageFetcher = null,
         private ?PageParser $pageParser = null,
+        private ?RobotsEvidenceProvider $robotsEvidenceProvider = null,
         private IndexabilityDetector $indexabilityDetector = new IndexabilityDetector(),
         private HttpAvailabilityDetector $httpAvailabilityDetector = new HttpAvailabilityDetector(),
         private MetadataDetector $metadataDetector = new MetadataDetector(),
@@ -96,6 +99,13 @@ final readonly class VisibilityAnalyzer
             $parseSkippedFindingFactory = fn (SearchQuery $query): Finding => $this->pageParseSkippedFinding($product, $query, $pageSnapshot, 'The supplied PageSnapshot did not include body evidence to parse.');
         }
 
+        $robotsEvidence = null;
+
+        if ($this->robotsEvidenceProvider instanceof RobotsEvidenceProvider) {
+            $robotsEvidence = $this->robotsEvidenceProvider->evidenceFor($urlToFetch);
+            $sharedWarnings = array_values(array_merge($sharedWarnings, $robotsEvidence->warnings));
+        }
+
         $queryVisibilities = [];
         $reportWarnings = $sharedWarnings;
 
@@ -127,6 +137,7 @@ final readonly class VisibilityAnalyzer
                 urlMatch: $urlMatch,
                 pageSnapshot: $pageSnapshot,
                 parsedPage: $parsedPage,
+                robotsEvidence: $robotsEvidence,
             );
 
             $queryVisibility = $this->visibilityResultDetector->queryVisibility($context);
@@ -135,7 +146,7 @@ final readonly class VisibilityAnalyzer
                 $detectorFindings = array_merge($detectorFindings, $this->httpAvailabilityDetector->detect($context));
             }
 
-            if ($pageSnapshot instanceof PageSnapshot || $parsedPage instanceof ParsedPage) {
+            if ($pageSnapshot instanceof PageSnapshot || $parsedPage instanceof ParsedPage || $robotsEvidence instanceof RobotsEvidence) {
                 $detectorFindings = array_merge($detectorFindings, $this->indexabilityDetector->detect($context));
             }
 
